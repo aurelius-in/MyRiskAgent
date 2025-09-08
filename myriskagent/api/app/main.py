@@ -14,6 +14,7 @@ from .agents.provider_outlier import ProviderOutlierAgent
 from .agents.narrator import NarratorAgent
 from .agents.evidence import EvidenceAgent
 from .storage.io import ObjectStore
+from .risk.engine import compute_family_scores, combine_scores  # NEW: use engine
 
 # Prometheus
 from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
@@ -21,6 +22,7 @@ from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
 # Data
 import io
 import pandas as pd
+import numpy as np
 
 
 app = FastAPI(title="MyRiskAgent API", version="0.1.0")
@@ -112,7 +114,6 @@ async def ingest_claims(file: UploadFile = File(...)):
 
     # Minimal normalization for expected columns
     if "claim_amount" not in df.columns:
-        # try common variants
         for cand in ["amount", "paid_amount", "total"]:
             if cand in df.columns:
                 df = df.rename(columns={cand: "claim_amount"})
@@ -138,16 +139,20 @@ async def ingest_external(req: IngestExternalRequest):
 
 @app.post("/risk/recompute/{org_id}/{period}")
 async def risk_recompute(org_id: int, period: str):
-    return {
-        "org_id": org_id,
-        "period": period,
-        "scores": {
-            "Financial Health Risk": {"score": 42.0, "confidence": 0.7},
-            "Compliance and Reputation Risk": {"score": 35.0, "confidence": 0.6},
-            "Operational and Outlier Risk": {"score": 50.0, "confidence": 0.65},
-            "Combined Index": {"score": 44.0, "confidence": 0.66},
-        },
+    # Demo feature frame: 200 rows, 6 features with light trends/noise
+    rng = np.random.default_rng(42)
+    base = rng.normal(0, 1, size=(200, 6))
+    trend = np.linspace(0, 0.5, 200).reshape(-1, 1)
+    features = pd.DataFrame(base + trend, columns=[f"f{i}" for i in range(6)])
+    fam = compute_family_scores(features)
+    combined_score, combined_conf = combine_scores(fam)
+    scores = {
+        "Financial Health Risk": {"score": float(fam["Financial Health Risk"][0]), "confidence": float(fam["Financial Health Risk"][1])},
+        "Compliance and Reputation Risk": {"score": float(fam["Compliance and Reputation Risk"][0]), "confidence": float(fam["Compliance and Reputation Risk"][1])},
+        "Operational and Outlier Risk": {"score": float(fam["Operational and Outlier Risk"][0]), "confidence": float(fam["Operational and Outlier Risk"][1])},
+        "Combined Index": {"score": float(combined_score), "confidence": float(combined_conf)},
     }
+    return {"org_id": org_id, "period": period, "scores": scores}
 
 
 @app.get("/risk/drivers/{org_id}/{period}")
