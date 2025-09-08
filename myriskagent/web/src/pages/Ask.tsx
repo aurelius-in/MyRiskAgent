@@ -118,7 +118,7 @@ const Ask: React.FC = () => {
       {!error && !answer && !loading && <EmptyState message="Ask a question to get started." />}
       {answer && (
         <Paper sx={{ p: 2, bgcolor: '#111', border: '1px solid #B30700', mb: 2 }}>
-          <div style={{ color: '#F1A501', marginBottom: 8 }}>{answer}</div>
+          <div style={{ color: '#F1A501', marginBottom: 8 }} dangerouslySetInnerHTML={{ __html: answer }} />
           <SourceChips items={cites} />
         </Paper>
       )}

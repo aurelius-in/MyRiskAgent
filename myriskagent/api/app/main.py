@@ -14,6 +14,7 @@ from .config import get_settings, Settings
 from .search.vector import InMemoryVectorStore, DocumentUpsert, PgVectorStore, ChromaVectorStore  # updated import
 from .agents.provider_outlier import ProviderOutlierAgent
 from .agents.narrator import NarratorAgent
+from .agents.qa import QAAssistantAgent
 from .agents.evidence import EvidenceAgent
 from .storage.io import ObjectStore, build_evidence_zip_bytes
 from .risk.engine import compute_family_scores, combine_scores  # NEW: use engine
@@ -584,13 +585,19 @@ async def ask(req: AskRequest):
         except Exception:
             pass
 
-    # Build citations from vector search
-    results = VECTOR_STORE.search(req.question, org_id=org_id, k=3)
-    citations = [
-        {"id": str(r.get("id")), "title": r.get("title") or "", "url": r.get("url") or ""}
-        for r in results
-    ]
-    return {"answer": "This is a placeholder answer.", "citations": citations}
+    # LLM-backed QA with strict citations
+    try:
+        qa = QAAssistantAgent(vector_store=VECTOR_STORE, news_api_key=get_settings().newsapi_key)
+        res = await qa.answer(req.question, org_id=org_id, scope=list(scopes))
+        return {"answer": res.answer_html, "citations": res.citations}
+    except Exception as e:
+        # Fallback: minimal vector-only citations
+        results = VECTOR_STORE.search(req.question, org_id=org_id, k=3)
+        citations = [
+            {"id": str(r.get("id")), "title": r.get("title") or "", "url": r.get("url") or ""}
+            for r in results
+        ]
+        return {"answer": "", "citations": citations, "error": str(e)}
 
 
 @app.post("/report/executive/{org_id}/{period}")
