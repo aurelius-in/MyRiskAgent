@@ -1,4 +1,4 @@
-# MyRiskAgent
+![MyRiskAgent](assets/mra-banner.png)
 
 **Agentic risk analysis platform** that ingests claims, filings, finance data, news, and OSINT to compute provider and company risk with peer-normalized outlier detection and evidence-rich explanations. Built for production workloads on FastAPI, Postgres/pgvector, DuckDB, Redis, and LangGraph-style orchestration. GPT-5 summarizes findings into executive briefs and full reports with citations.
 
