@@ -5,6 +5,8 @@ import { apiGet, apiPost } from '../lib/api'
 import type { DocResult } from '../lib/types'
 import SkeletonBlock from '../components/SkeletonBlock'
 import { useOrg } from '../context/OrgContext'
+import EmptyState from '../components/EmptyState'
+import ErrorState from '../components/ErrorState'
 
 const Documents: React.FC = () => {
   const { orgId } = useOrg()
@@ -68,7 +70,7 @@ const Documents: React.FC = () => {
         <Grid item xs={12} md={5}>
           <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700', p: 1 }}>
             {isFetching && <SkeletonBlock height={100} />}
-            {isError && <div style={{ color: '#B30700' }}>Search failed. Try again.</div>}
+            {isError && <ErrorState message="Search failed. Try again." />}
             {!isFetching && !isError && (
               <>
                 <List>
@@ -83,7 +85,7 @@ const Documents: React.FC = () => {
                     </ListItem>
                   ))}
                   {results.length === 0 && (!recent.data || (recent.data.results || []).length === 0) && (
-                    <ListItem><ListItemText primary={'No results yet.'} sx={{ color: '#F1A501' }} /></ListItem>
+                    <EmptyState message="No results yet." />
                   )}
                 </List>
               </>

@@ -8,6 +8,8 @@ import SocialSparkline from '../components/SocialSparkline'
 import WhatIfPanel from '../components/WhatIfPanel'
 import SkeletonBlock from '../components/SkeletonBlock'
 import { useOrg } from '../context/OrgContext'
+import ErrorState from '../components/ErrorState'
+import EmptyState from '../components/EmptyState'
 
 interface ScoreFamily { score: number; confidence: number }
 interface ProfileResp { scores: Record<string, ScoreFamily> }
@@ -70,7 +72,7 @@ const Overview: React.FC = () => {
     <Box>
       <Typography variant="h4" gutterBottom>Overview</Typography>
       {isFetching && <SkeletonBlock height={200} />}
-      {isError && <div style={{ color: '#B30700' }}>Failed to load. Retrying may help.</div>}
+      {isError && <ErrorState message="Failed to load. Retrying may help." />}
       {!isFetching && !isError && (
         <Grid container spacing={2}>
           <Grid item xs={12} md={6}>
@@ -99,8 +101,12 @@ const Overview: React.FC = () => {
             <Paper sx={{ p: 2, bgcolor: '#111', border: '1px solid #B30700' }}>
               <Typography variant="h6" sx={{ color: '#F1A501', fontFamily: 'Special Elite, serif' }}>Social Signals</Typography>
               {social.isLoading && <SkeletonBlock height={60} />}
-              {!social.isLoading && social.data && <SocialSparkline events={social.data.events || []} />}
-              {!social.isLoading && social.data && (
+              {social.isError && <ErrorState message="Failed to load social signals." />}
+              {!social.isLoading && !social.isError && social.data && (social.data.events || []).length === 0 && (
+                <EmptyState message="No recent social events." />
+              )}
+              {!social.isLoading && !social.isError && social.data && (social.data.events || []).length > 0 && <SocialSparkline events={social.data.events || []} />}
+              {!social.isLoading && !social.isError && social.data && (
                 <Typography sx={{ color: '#F1A501', mt: 1 }}>Online component: {Number(social.data.c_online || 0).toFixed(1)}</Typography>
               )}
             </Paper>

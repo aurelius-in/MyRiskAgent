@@ -1,5 +1,7 @@
 import React from 'react'
 import { Box, Typography, TextField, Button, Paper, Stack, FormGroup, FormControlLabel, Checkbox } from '@mui/material'
+import EmptyState from '../components/EmptyState'
+import ErrorState from '../components/ErrorState'
 import { apiPost } from '../lib/api'
 import SourceChips from '../components/SourceChips'
 import HtmlDialog from '../components/HtmlDialog'
@@ -20,6 +22,7 @@ const Ask: React.FC = () => {
   const [sanctions, setSanctions] = React.useState<SanctionsResp | null>(null)
   const [scopeNews, setScopeNews] = React.useState(true)
   const [scopeFilings, setScopeFilings] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
 
   const ask = async () => {
     setLoading(true)
@@ -28,9 +31,11 @@ const Ask: React.FC = () => {
       const res = await apiPost<AskResponse>('/api/ask', { question, org_id: orgId, scope })
       setAnswer(res.answer || '')
       setCites(res.citations || [])
+      setError(null)
     } catch (e) {
       setAnswer('')
       setCites([])
+      setError('Ask failed. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -42,6 +47,7 @@ const Ask: React.FC = () => {
       const res = await apiPost<{ html: string; summary: any }>(`/api/report/executive/${orgId}/latest`, {})
       setReportHtml(`<div style='padding:12px'><h3 style='color:#B30700;font-family:Special Elite,serif'>Executive Brief</h3>${res.html}</div>\n`)
       setOpenReport(true)
+      setError(null)
     } finally {
       setLoading(false)
     }
@@ -53,6 +59,7 @@ const Ask: React.FC = () => {
       const res = await apiPost<{ html: string; summary: any }>(`/api/report/full/${orgId}/latest`, {})
       setReportHtml(`<div style='padding:12px'><h3 style='color:#B30700;font-family:Special Elite,serif'>Full Report</h3>${res.html}</div>\n`)
       setOpenReport(true)
+      setError(null)
     } finally {
       setLoading(false)
     }
@@ -63,6 +70,7 @@ const Ask: React.FC = () => {
     try {
       const res = await apiPost<SanctionsResp>('/api/agents/sanctions', { name: question || 'ACME' })
       setSanctions(res)
+      setError(null)
     } finally {
       setLoading(false)
     }
@@ -106,6 +114,8 @@ const Ask: React.FC = () => {
         <Button variant="outlined" onClick={checkSanctions} disabled={loading} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Sanctions</Button>
         <Button variant="outlined" onClick={downloadPdf} disabled={loading} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Download PDF</Button>
       </Stack>
+      {error && <ErrorState message={error} />}
+      {!error && !answer && !loading && <EmptyState message="Ask a question to get started." />}
       {answer && (
         <Paper sx={{ p: 2, bgcolor: '#111', border: '1px solid #B30700', mb: 2 }}>
           <div style={{ color: '#F1A501', marginBottom: 8 }}>{answer}</div>

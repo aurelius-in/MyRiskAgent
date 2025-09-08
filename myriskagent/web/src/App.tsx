@@ -1,5 +1,5 @@
 import React from 'react'
-import { AppBar, Box, CssBaseline, Tab, Tabs, Toolbar, Typography } from '@mui/material'
+import { AppBar, Box, CssBaseline, LinearProgress, Tab, Tabs, Toolbar, Typography } from '@mui/material'
 import { QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { queryClient } from './lib/query'
 import Overview from './pages/Overview'
@@ -39,13 +39,14 @@ const Footer: React.FC = () => {
 
 const App: React.FC = () => {
   const [tab, setTab] = React.useState(0)
+  const [loadingTop, setLoadingTop] = React.useState(false)
 
   return (
     <QueryClientProvider client={queryClient}>
       <OrgProvider>
         <Box sx={{ bgcolor: 'black', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
           <CssBaseline />
-          <AppBar position="static" sx={{ bgcolor: '#000000', borderBottom: '1px solid #B30700' }}>
+          <AppBar position="static">
             <Toolbar>
               <NavLogo />
               <Typography
@@ -61,7 +62,6 @@ const App: React.FC = () => {
                 value={tab}
                 onChange={(_, v) => setTab(v)}
                 textColor="inherit"
-                TabIndicatorProps={{ style: { backgroundColor: '#F1A501' } }}
               >
                 <Tab label="Overview" {...a11yProps(0)} sx={{ color: '#F1A501' }} />
                 <Tab label="Scores" {...a11yProps(1)} sx={{ color: '#F1A501' }} />
@@ -71,6 +71,7 @@ const App: React.FC = () => {
                 <Tab label="Providers" {...a11yProps(5)} sx={{ color: '#F1A501' }} />
               </Tabs>
             </Toolbar>
+            {loadingTop && <LinearProgress color="secondary" />}
           </AppBar>
           <Box sx={{ p: 2, flex: 1 }}>
             <ErrorBoundary>

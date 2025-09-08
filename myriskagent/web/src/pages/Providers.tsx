@@ -6,6 +6,8 @@ import { useOrg } from '../context/OrgContext'
 import SkeletonBlock from '../components/SkeletonBlock'
 import ProviderDetailDialog from '../components/ProviderDetailDialog'
 import { exportToCsv } from '../lib/csv'
+import ErrorState from '../components/ErrorState'
+import EmptyState from '../components/EmptyState'
 
 interface ProviderRow {
   provider_id: number
@@ -94,8 +96,9 @@ const Providers: React.FC = () => {
       </Box>
       <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700' }}>
         {isLoading && <SkeletonBlock height={160} />}
-        {isError && <div style={{ color: '#B30700', padding: 8 }}>Failed to load providers.</div>}
-        {!isLoading && !isError && (
+        {isError && <ErrorState message="Failed to load providers." />}
+        {!isLoading && !isError && rows.length === 0 && <EmptyState message="No providers match your filters." />}
+        {!isLoading && !isError && rows.length > 0 && (
           <Table size="small">
             <TableHead>
               <TableRow>

@@ -8,6 +8,8 @@ import type { ScoresListResp, OutliersResp } from '../lib/types'
 import { exportToCsv } from '../lib/csv'
 import { useOrg } from '../context/OrgContext'
 import ProviderDetailDialog from '../components/ProviderDetailDialog'
+import ErrorState from '../components/ErrorState'
+import EmptyState from '../components/EmptyState'
 
 const Scores: React.FC = () => {
   const { orgId } = useOrg()
@@ -57,7 +59,7 @@ const Scores: React.FC = () => {
       <Typography variant="h4" gutterBottom>Scores</Typography>
       <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700', mb: 2 }}>
         {isLoading && <SkeletonBlock height={100} />}
-        {isError && <div style={{ color: '#B30700', padding: 8 }}>Failed to load scores.</div>}
+        {isError && <ErrorState message="Failed to load scores." />}
         {!isLoading && !isError && (
           <List>
             {(data?.scores || []).map((s, idx) => (
@@ -65,9 +67,7 @@ const Scores: React.FC = () => {
                 <ListItemText primary={`${s.entity ?? 'Org'} - ${s.family ?? 'Family'}: ${s.score ?? ''}`} sx={{ color: '#F1A501' }} />
               </ListItem>
             ))}
-            {(!data?.scores || data.scores.length === 0) && (
-              <ListItem><ListItemText primary="No scores yet." sx={{ color: '#F1A501' }} /></ListItem>
-            )}
+            {(!data?.scores || data.scores.length === 0) && <EmptyState message="No scores yet." />}
           </List>
         )}
       </Paper>
@@ -90,8 +90,9 @@ const Scores: React.FC = () => {
 
       <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700' }}>
         {outliers.isLoading && <SkeletonBlock height={160} />}
-        {outliers.isError && <div style={{ color: '#B30700', padding: 8 }}>Failed to load outliers.</div>}
-        {!outliers.isLoading && !outliers.isError && <OutliersTable rows={filtered} onSelect={openDetail} />}
+        {outliers.isError && <ErrorState message="Failed to load outliers." />}
+        {!outliers.isLoading && !outliers.isError && filtered.length === 0 && <EmptyState message="No outliers match your filters." />}
+        {!outliers.isLoading && !outliers.isError && filtered.length > 0 && <OutliersTable rows={filtered} onSelect={openDetail} />}
       </Paper>
 
       <ProviderDetailDialog open={detailOpen} onClose={() => setDetailOpen(false)} detail={detail || undefined} />
