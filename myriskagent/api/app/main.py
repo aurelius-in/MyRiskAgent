@@ -18,6 +18,10 @@ from .storage.io import ObjectStore
 # Prometheus
 from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
 
+# Data
+import io
+import pandas as pd
+
 
 app = FastAPI(title="MyRiskAgent API", version="0.1.0")
 
@@ -95,10 +99,36 @@ class IngestExternalRequest(BaseModel):
 @app.post("/ingest/claims")
 async def ingest_claims(file: UploadFile = File(...)):
     content = await file.read()
-    size = len(content)
-    if size == 0:
+    if not content:
         raise HTTPException(status_code=400, detail="Empty file")
-    return {"received_bytes": size, "filename": file.filename}
+    name = (file.filename or "").lower()
+    try:
+        if name.endswith(".parquet") or name.endswith(".pq"):
+            df = pd.read_parquet(io.BytesIO(content))
+        else:
+            df = pd.read_csv(io.BytesIO(content))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to parse file: {e}")
+
+    # Minimal normalization for expected columns
+    if "claim_amount" not in df.columns:
+        # try common variants
+        for cand in ["amount", "paid_amount", "total"]:
+            if cand in df.columns:
+                df = df.rename(columns={cand: "claim_amount"})
+                break
+    if "provider_id" not in df.columns and "provider" in df.columns:
+        df = df.rename(columns={"provider": "provider_id"})
+
+    # Compute provider outliers if possible
+    outliers = []
+    try:
+        agent = ProviderOutlierAgent()
+        outliers = [o.__dict__ for o in agent.run(df[[c for c in df.columns if c in {"provider_id", "claim_amount"}]].dropna())][:10]
+    except Exception:
+        outliers = []
+
+    return {"received_rows": int(len(df)), "outliers": outliers}
 
 
 @app.post("/ingest/external")
@@ -118,6 +148,17 @@ async def risk_recompute(org_id: int, period: str):
             "Combined Index": {"score": 44.0, "confidence": 0.66},
         },
     }
+
+
+@app.get("/risk/drivers/{org_id}/{period}")
+async def risk_drivers(org_id: int, period: str):
+    drivers = [
+        {"name": "Margins", "value": 5.0},
+        {"name": "Legal Mentions", "value": 3.0},
+        {"name": "Supply Delays", "value": -2.0},
+        {"name": "Online Buzz", "value": 1.0},
+    ]
+    return {"org_id": org_id, "period": period, "drivers": drivers}
 
 
 @app.get("/scores/{org_id}/{period}")
@@ -166,7 +207,6 @@ async def ask(req: AskRequest):
 async def report_executive(org_id: int, period: str):
     if NARRATOR is None:
         raise HTTPException(status_code=500, detail="Narrator not initialized")
-    # In a full implementation we would fetch top docs and scores
     rep = await NARRATOR.build_reports({"org_id": org_id, "period": period})
     return {"html": rep.html, "summary": rep.summary}
 
