@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Grid, Typography, Paper, Button } from '@mui/material'
+import { Box, Grid, Typography, Paper, Button, List, ListItem, ListItemText, Divider } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { apiPost } from '../lib/api'
 import RiskGauge from '../components/RiskGauge'
@@ -16,6 +16,9 @@ interface ProfileResp { scores: Record<string, ScoreFamily> }
 
 const Overview: React.FC = () => {
   const { orgId } = useOrg()
+  const [pinned, setPinned] = React.useState<any[]>(() => {
+    try { const raw = localStorage.getItem('mra_pinned_docs'); return raw ? JSON.parse(raw) : [] } catch { return [] }
+  })
   const { data, refetch, isFetching, isError } = useQuery({
     queryKey: ['profile', orgId, 'latest'],
     queryFn: async () => {
@@ -109,6 +112,22 @@ const Overview: React.FC = () => {
               {!social.isLoading && !social.isError && social.data && (
                 <Typography sx={{ color: '#F1A501', mt: 1 }}>Online component: {Number(social.data.c_online || 0).toFixed(1)}</Typography>
               )}
+            </Paper>
+          </Grid>
+          <Grid item xs={12}>
+            <Paper sx={{ p: 2, bgcolor: '#111', border: '1px solid #B30700' }}>
+              <Typography variant="h6" sx={{ color: '#F1A501', fontFamily: 'Special Elite, serif', mb: 1 }}>Pinned Documents</Typography>
+              {pinned.length === 0 ? (
+                <EmptyState message="No pinned documents yet." />)
+                : (
+                  <List>
+                    {pinned.slice(0, 8).map((d, idx) => (
+                      <ListItem key={`pin-${idx}`} component="a" href={d.url} target="_blank">
+                        <ListItemText primary={d.title} secondary={d.snippet} sx={{ color: '#F1A501' }} />
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
             </Paper>
           </Grid>
         </Grid>
