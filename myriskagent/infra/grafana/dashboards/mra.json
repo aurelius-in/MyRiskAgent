@@ -1,0 +1,19 @@
+{
+  "title": "MyRiskAgent - API",
+  "timezone": "browser",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "HTTP Requests",
+      "targets": [
+        {
+          "expr": "sum by (path, method) (rate(mra_requests_total[5m]))",
+          "legendFormat": "{{path}} {{method}}"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 }
+    }
+  ],
+  "schemaVersion": 38,
+  "version": 1
+}
