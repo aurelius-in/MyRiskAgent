@@ -11,9 +11,10 @@ export interface OutlierRow {
 
 interface OutliersTableProps {
   rows: OutlierRow[]
+  onSelect?: (providerId: number) => void
 }
 
-const OutliersTable: React.FC<OutliersTableProps> = ({ rows }) => {
+const OutliersTable: React.FC<OutliersTableProps> = ({ rows, onSelect }) => {
   return (
     <TableContainer component={Paper} sx={{ bgcolor: '#111', border: '1px solid #B30700' }}>
       <Table size="small">
@@ -28,7 +29,7 @@ const OutliersTable: React.FC<OutliersTableProps> = ({ rows }) => {
         </TableHead>
         <TableBody>
           {rows.map((r) => (
-            <TableRow key={r.provider_id}>
+            <TableRow key={r.provider_id} hover style={{ cursor: onSelect ? 'pointer' : 'default' }} onClick={() => onSelect?.(r.provider_id)}>
               <TableCell sx={{ color: '#F1A501' }}>{r.provider_id}</TableCell>
               <TableCell sx={{ color: '#F1A501' }} align="right">{r.score.toFixed(1)}</TableCell>
               <TableCell sx={{ color: '#F1A501' }} align="right">{r.z_total_amount?.toFixed(2)}</TableCell>

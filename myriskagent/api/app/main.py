@@ -235,6 +235,32 @@ async def outliers_providers(org_id: int = Query(...), period: str = Query(...))
     return {"org_id": org_id, "period": period, "providers": providers}
 
 
+@app.get("/providers/{provider_id}/detail")
+async def provider_detail(provider_id: int, org_id: int = Query(...)):
+    df = CLAIMS_BY_ORG.get(org_id)
+    if df is None or df.empty:
+        return {"provider_id": provider_id, "org_id": org_id, "count": 0, "total": 0.0, "avg": 0.0, "series": []}
+    pdf = df[df.get("provider_id") == provider_id]
+    if pdf.empty:
+        return {"provider_id": provider_id, "org_id": org_id, "count": 0, "total": 0.0, "avg": 0.0, "series": []}
+    total = float(pdf["claim_amount"].sum())
+    count = int(pdf["claim_amount"].count())
+    avg = float(pdf["claim_amount"].mean())
+    # time series by date if present
+    series = []
+    if "claim_date" in pdf.columns:
+        try:
+            s = (
+                pdf.assign(claim_date=pd.to_datetime(pdf["claim_date"]))
+                .groupby(pd.Grouper(key="claim_date", freq="D"))["claim_amount"].sum()
+                .reset_index()
+            )
+            series = [{"date": d.strftime("%Y-%m-%d"), "amount": float(v)} for d, v in zip(s["claim_date"], s["claim_amount"])]
+        except Exception:
+            pass
+    return {"provider_id": provider_id, "org_id": org_id, "count": count, "total": total, "avg": avg, "series": series}
+
+
 @app.get("/docs/search")
 async def docs_search(q: str, org_id: Optional[int] = None):
     if VECTOR_STORE is None:
