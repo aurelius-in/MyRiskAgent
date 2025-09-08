@@ -5,10 +5,12 @@ import SourceChips from '../components/SourceChips'
 import HtmlDialog from '../components/HtmlDialog'
 import SanctionsList from '../components/SanctionsList'
 import type { SanctionsResp } from '../lib/types'
+import { useOrg } from '../context/OrgContext'
 
 interface AskResponse { answer: string; citations: { id: string; title?: string; url?: string }[] }
 
 const Ask: React.FC = () => {
+  const { orgId } = useOrg()
   const [question, setQuestion] = React.useState('')
   const [answer, setAnswer] = React.useState('')
   const [cites, setCites] = React.useState<AskResponse['citations']>([])
@@ -20,7 +22,7 @@ const Ask: React.FC = () => {
   const ask = async () => {
     setLoading(true)
     try {
-      const res = await apiPost<AskResponse>('/api/ask', { question })
+      const res = await apiPost<AskResponse>('/api/ask', { question, org_id: orgId })
       setAnswer(res.answer || '')
       setCites(res.citations || [])
     } catch (e) {
@@ -34,7 +36,7 @@ const Ask: React.FC = () => {
   const execBrief = async () => {
     setLoading(true)
     try {
-      const res = await apiPost<{ html: string; summary: unknown }>(`/api/report/executive/1/latest`, {})
+      const res = await apiPost<{ html: string; summary: unknown }>(`/api/report/executive/${orgId}/latest`, {})
       setReportHtml(res.html || '')
       setOpenReport(true)
     } finally {
@@ -45,7 +47,7 @@ const Ask: React.FC = () => {
   const fullReport = async () => {
     setLoading(true)
     try {
-      const res = await apiPost<{ html: string; summary: unknown }>(`/api/report/full/1/latest`, {})
+      const res = await apiPost<{ html: string; summary: unknown }>(`/api/report/full/${orgId}/latest`, {})
       setReportHtml(res.html || '')
       setOpenReport(true)
     } finally {

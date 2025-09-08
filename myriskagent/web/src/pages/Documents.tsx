@@ -4,21 +4,23 @@ import { useQuery } from '@tanstack/react-query'
 import { apiGet, apiPost } from '../lib/api'
 import type { DocResult } from '../lib/types'
 import SkeletonBlock from '../components/SkeletonBlock'
+import { useOrg } from '../context/OrgContext'
 
 const Documents: React.FC = () => {
+  const { orgId } = useOrg()
   const [q, setQ] = React.useState('')
   const [ticker, setTicker] = React.useState('')
   const [selected, setSelected] = React.useState<DocResult | null>(null)
   const { data, isFetching, refetch, isError } = useQuery({
-    queryKey: ['docs', q],
+    queryKey: ['docs', orgId, q],
     enabled: false,
-    queryFn: async () => apiGet<{ results: DocResult[] }>(`/api/docs/search?q=${encodeURIComponent(q)}`),
+    queryFn: async () => apiGet<{ results: DocResult[] }>(`/api/docs/search?q=${encodeURIComponent(q)}&org_id=${orgId}`),
   })
 
   const results = data?.results ?? []
 
   const fetchNews = async () => {
-    await apiPost('/api/agents/news', { query: q })
+    await apiPost('/api/agents/news', { query: q, org: String(orgId) })
     await refetch()
   }
 
