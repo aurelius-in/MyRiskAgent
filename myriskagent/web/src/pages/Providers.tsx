@@ -61,6 +61,9 @@ const Providers: React.FC = () => {
     return sorted
   }, [data, orderBy, order, industry, region])
 
+  // Clear filters
+  const clearFilters = () => { setIndustry(''); setRegion('') }
+
   const [detailOpen, setDetailOpen] = React.useState(false)
   const [detail, setDetail] = React.useState<any>(null)
   const openDetail = async (providerId: number) => {
@@ -107,6 +110,7 @@ const Providers: React.FC = () => {
         />
         <Button variant="outlined" onClick={exportCsv} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Export CSV (client)</Button>
         <Button variant="outlined" onClick={downloadServerCsv} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Download CSV (API)</Button>
+        <Button variant="outlined" onClick={clearFilters} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Clear</Button>
       </Box>
       <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700' }}>
         {isLoading && <SkeletonBlock height={160} />}
