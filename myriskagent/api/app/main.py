@@ -390,6 +390,26 @@ async def list_providers(org_id: int = Query(...)):
     return {"org_id": org_id, "providers": providers}
 
 
+@app.get("/providers/export")
+async def export_providers_csv(org_id: int = Query(...)):
+    df = CLAIMS_BY_ORG.get(org_id)
+    if df is None or df.empty:
+        csv_bytes = b"provider_id,total_amount,avg_amount,n_claims\n"
+    else:
+        agg = (
+            df.groupby("provider_id")
+            .agg(
+                total_amount=("claim_amount", "sum"),
+                avg_amount=("claim_amount", "mean"),
+                n_claims=("claim_amount", "count"),
+            )
+            .reset_index()
+        )
+        csv_bytes = agg.to_csv(index=False).encode("utf-8")
+    headers = {"Content-Disposition": f"attachment; filename=providers_{org_id}.csv"}
+    return StreamingResponse(_io_for_pdf.BytesIO(csv_bytes), media_type="text/csv", headers=headers)
+
+
 @app.get("/docs/search")
 async def docs_search(q: str, org_id: Optional[int] = None):
     if VECTOR_STORE is None:
@@ -423,7 +443,51 @@ class AskRequest(BaseModel):
 
 @app.post("/ask")
 async def ask(req: AskRequest):
-    results = VECTOR_STORE.search(req.question, org_id=req.org_id, k=3)
+    if VECTOR_STORE is None:
+        raise HTTPException(status_code=500, detail="Vector store not initialized")
+    org_id = req.org_id
+    scopes = {s.lower() for s in (req.scope or [])}
+
+    # Honor scope: fetch recent news and/or filings, then upsert into search
+    if "news" in scopes:
+        try:
+            agent = NewsAgent(api_key=get_settings().newsapi_key)
+            res = await agent.search(req.question or "")
+            docs = [
+                DocumentUpsert(
+                    id=None,
+                    org_id=org_id or 1,
+                    title=it.get("text"),
+                    url=it.get("id"),
+                    content=it.get("text", ""),
+                )
+                for it in (res.embeds or [])
+            ]
+            if docs:
+                VECTOR_STORE.upsert_documents(docs)
+        except Exception:
+            pass
+    if "filings" in scopes:
+        try:
+            agent = FilingsAgent()
+            res = await agent.fetch(org=req.question or "", ticker=None)
+            docs = [
+                DocumentUpsert(
+                    id=None,
+                    org_id=org_id or 1,
+                    title=it.get("text"),
+                    url=it.get("id"),
+                    content=it.get("text", ""),
+                )
+                for it in (res.embeds or [])
+            ]
+            if docs:
+                VECTOR_STORE.upsert_documents(docs)
+        except Exception:
+            pass
+
+    # Build citations from vector search
+    results = VECTOR_STORE.search(req.question, org_id=org_id, k=3)
     citations = [
         {"id": str(r.get("id")), "title": r.get("title") or "", "url": r.get("url") or ""}
         for r in results

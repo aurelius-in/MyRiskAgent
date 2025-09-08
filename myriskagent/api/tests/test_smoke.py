@@ -86,3 +86,10 @@ def test_providers_list_smoke():
     js = r.json()
     assert js.get("org_id") == 1
     assert isinstance(js.get("providers"), list)
+
+
+def test_providers_export_csv_smoke():
+    client = TestClient(app)
+    r = client.get("/providers/export?org_id=1")
+    assert r.status_code == 200
+    assert r.headers.get("content-type", "").startswith("text/csv")
