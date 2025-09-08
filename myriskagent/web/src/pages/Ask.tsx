@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Typography, TextField, Button, Paper, Stack } from '@mui/material'
+import { Box, Typography, TextField, Button, Paper, Stack, FormGroup, FormControlLabel, Checkbox } from '@mui/material'
 import { apiPost } from '../lib/api'
 import SourceChips from '../components/SourceChips'
 import HtmlDialog from '../components/HtmlDialog'
@@ -18,11 +18,14 @@ const Ask: React.FC = () => {
   const [reportHtml, setReportHtml] = React.useState('')
   const [openReport, setOpenReport] = React.useState(false)
   const [sanctions, setSanctions] = React.useState<SanctionsResp | null>(null)
+  const [scopeNews, setScopeNews] = React.useState(true)
+  const [scopeFilings, setScopeFilings] = React.useState(false)
 
   const ask = async () => {
     setLoading(true)
     try {
-      const res = await apiPost<AskResponse>('/api/ask', { question, org_id: orgId })
+      const scope = [scopeNews ? 'news' : null, scopeFilings ? 'filings' : null].filter(Boolean)
+      const res = await apiPost<AskResponse>('/api/ask', { question, org_id: orgId, scope })
       setAnswer(res.answer || '')
       setCites(res.citations || [])
     } catch (e) {
@@ -36,8 +39,8 @@ const Ask: React.FC = () => {
   const execBrief = async () => {
     setLoading(true)
     try {
-      const res = await apiPost<{ html: string; summary: unknown }>(`/api/report/executive/${orgId}/latest`, {})
-      setReportHtml(res.html || '')
+      const res = await apiPost<{ html: string; summary: any }>(`/api/report/executive/${orgId}/latest`, {})
+      setReportHtml(`<div style='padding:12px'><h3 style='color:#B30700;font-family:Special Elite,serif'>Executive Brief</h3>${res.html}</div>\n`)
       setOpenReport(true)
     } finally {
       setLoading(false)
@@ -47,8 +50,8 @@ const Ask: React.FC = () => {
   const fullReport = async () => {
     setLoading(true)
     try {
-      const res = await apiPost<{ html: string; summary: unknown }>(`/api/report/full/${orgId}/latest`, {})
-      setReportHtml(res.html || '')
+      const res = await apiPost<{ html: string; summary: any }>(`/api/report/full/${orgId}/latest`, {})
+      setReportHtml(`<div style='padding:12px'><h3 style='color:#B30700;font-family:Special Elite,serif'>Full Report</h3>${res.html}</div>\n`)
       setOpenReport(true)
     } finally {
       setLoading(false)
@@ -93,6 +96,10 @@ const Ask: React.FC = () => {
           InputProps={{ sx: { color: '#F1A501' } }}
           sx={{ input: { color: '#F1A501' }, label: { color: '#F1A501' } }}
         />
+        <FormGroup row>
+          <FormControlLabel control={<Checkbox checked={scopeNews} onChange={e => setScopeNews(e.target.checked)} sx={{ color: '#F1A501' }} />} label="News" sx={{ color: '#F1A501' }} />
+          <FormControlLabel control={<Checkbox checked={scopeFilings} onChange={e => setScopeFilings(e.target.checked)} sx={{ color: '#F1A501' }} />} label="Filings" sx={{ color: '#F1A501' }} />
+        </FormGroup>
         <Button variant="outlined" onClick={ask} disabled={loading} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Ask</Button>
         <Button variant="outlined" onClick={execBrief} disabled={loading} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Executive Brief</Button>
         <Button variant="outlined" onClick={fullReport} disabled={loading} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Full Report</Button>

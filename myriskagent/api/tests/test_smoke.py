@@ -68,3 +68,21 @@ def test_version_endpoint():
     assert r.status_code == 200
     data = r.json()
     assert "version" in data
+
+
+def test_social_recent_smoke():
+    client = TestClient(app)
+    r = client.get("/social/1/recent")
+    assert r.status_code == 200
+    js = r.json()
+    assert js.get("org_id") == 1
+    assert isinstance(js.get("events"), list)
+
+
+def test_providers_list_smoke():
+    client = TestClient(app)
+    r = client.get("/providers?org_id=1")
+    assert r.status_code == 200
+    js = r.json()
+    assert js.get("org_id") == 1
+    assert isinstance(js.get("providers"), list)
