@@ -17,6 +17,7 @@ from .storage.io import ObjectStore
 from .risk.engine import compute_family_scores, combine_scores  # NEW: use engine
 from .agents.news import NewsAgent
 from .agents.filings import FilingsAgent
+from .agents.sanctions import SanctionsAgent
 
 # Prometheus
 from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
@@ -285,3 +286,12 @@ async def agents_filings(req: AgentFetchRequest):
         docs.append(DocumentUpsert(id=None, org_id=1, title=it.get("text"), url=it.get("id"), content=it.get("text", "")))
     count = VECTOR_STORE.upsert_documents(docs)
     return {"upserted": count, "snippets": len(res.snippets)}
+
+class SanctionsRequest(BaseModel):
+    name: str
+
+@app.post("/agents/sanctions")
+async def agents_sanctions(req: SanctionsRequest):
+    agent = SanctionsAgent()
+    flags = await agent.check(req.name)
+    return {"count": len(flags), "flags": [f.__dict__ for f in flags]}

@@ -19,3 +19,6 @@ export interface ProviderOutlierRow {
 
 export interface OutliersResp { providers: ProviderOutlierRow[] }
 export interface ScoresListResp { scores: { entity?: string; family?: string; score?: number }[] }
+
+export interface SanctionFlag { name: string; list: string; score: number; source_url: string }
+export interface SanctionsResp { count: number; flags: SanctionFlag[] }
