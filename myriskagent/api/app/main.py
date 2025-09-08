@@ -405,15 +405,16 @@ async def outliers_providers(
 async def provider_detail(provider_id: int, org_id: int = Query(...)):
     df = CLAIMS_BY_ORG.get(org_id)
     if df is None or df.empty:
-        return {"provider_id": provider_id, "org_id": org_id, "count": 0, "total": 0.0, "avg": 0.0, "series": []}
+        return {"provider_id": provider_id, "org_id": org_id, "count": 0, "total": 0.0, "avg": 0.0, "series": [], "notes": ""}
     pdf = df[df.get("provider_id") == provider_id]
     if pdf.empty:
-        return {"provider_id": provider_id, "org_id": org_id, "count": 0, "total": 0.0, "avg": 0.0, "series": []}
+        return {"provider_id": provider_id, "org_id": org_id, "count": 0, "total": 0.0, "avg": 0.0, "series": [], "notes": ""}
     total = float(pdf["claim_amount"].sum())
     count = int(pdf["claim_amount"].count())
     avg = float(pdf["claim_amount"].mean())
     # time series by date if present
     series = []
+    notes = ""
     if "claim_date" in pdf.columns:
         try:
             s = (
@@ -422,9 +423,18 @@ async def provider_detail(provider_id: int, org_id: int = Query(...)):
                 .reset_index()
             )
             series = [{"date": d.strftime("%Y-%m-%d"), "amount": float(v)} for d, v in zip(s["claim_date"], s["claim_amount"])]
+            vals = [it["amount"] for it in series]
+            if len(vals) >= 3:
+                mean = float(np.mean(vals))
+                std = float(np.std(vals) or 1.0)
+                spikes = [it for it in series if abs(it["amount"] - mean) > 2 * std]
+                spikes = sorted(spikes, key=lambda x: abs(x["amount"] - mean), reverse=True)[:3]
+                if spikes:
+                    parts = [f"{it['date']}: {it['amount']:.2f}" for it in spikes]
+                    notes = f"Notable spikes vs mean {mean:.2f}: " + "; ".join(parts)
         except Exception:
             pass
-    return {"provider_id": provider_id, "org_id": org_id, "count": count, "total": total, "avg": avg, "series": series}
+    return {"provider_id": provider_id, "org_id": org_id, "count": count, "total": total, "avg": avg, "series": series, "notes": notes}
 
 
 @app.get("/providers")

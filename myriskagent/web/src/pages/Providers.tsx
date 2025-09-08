@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Typography, Paper, Table, TableHead, TableRow, TableCell, TableBody, TableSortLabel, TextField, Button, Autocomplete, Snackbar, Alert } from '@mui/material'
+import { Box, Typography, Paper, Table, TableHead, TableRow, TableCell, TableBody, TableSortLabel, TextField, Button, Autocomplete, Snackbar, Alert, Chip, Stack, TableContainer, Switch, FormControlLabel } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { apiGet } from '../lib/api'
 import { useOrg } from '../context/OrgContext'
@@ -73,6 +73,7 @@ const Providers: React.FC = () => {
   const [detailOpen, setDetailOpen] = React.useState(false)
   const [detail, setDetail] = React.useState<any>(null)
   const [toast, setToast] = React.useState<{ open: boolean; msg: string }>({ open: false, msg: '' })
+  const [dense, setDense] = React.useState<boolean>(false)
   const openDetail = async (providerId: number) => {
     const d = await apiGet(`/api/providers/${providerId}/detail?org_id=${orgId}`)
     setDetail(d)
@@ -121,7 +122,7 @@ const Providers: React.FC = () => {
   return (
     <Box>
       <Typography variant="h4" gutterBottom>Providers</Typography>
-      <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+      <Box sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center', flexWrap: 'wrap' }}>
         <TextField size="small" placeholder="Search id/industry/region" value={query} onChange={e => setQuery(e.target.value)} sx={{ minWidth: 220 }} />
         <Autocomplete
           options={industryOptions}
@@ -141,13 +142,20 @@ const Providers: React.FC = () => {
         <Button variant="outlined" onClick={downloadServerCsv} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Download CSV (API)</Button>
         <Button variant="outlined" onClick={clearFilters} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Clear</Button>
         <Button variant="outlined" onClick={copyCsv} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Copy CSV</Button>
+        <FormControlLabel control={<Switch checked={dense} onChange={(e) => setDense(e.target.checked)} />} label="Dense" sx={{ color: '#F1A501' }} />
       </Box>
+      <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }}>
+        {query && <Chip label={`q: ${query}`} onDelete={() => setQuery('')} sx={{ bgcolor: '#111', border: '1px solid #B30700', color: '#F1A501' }} />}
+        {industry && <Chip label={`industry: ${industry}`} onDelete={() => setIndustry('')} sx={{ bgcolor: '#111', border: '1px solid #B30700', color: '#F1A501' }} />}
+        {region && <Chip label={`region: ${region}`} onDelete={() => setRegion('')} sx={{ bgcolor: '#111', border: '1px solid #B30700', color: '#F1A501' }} />}
+      </Stack>
       <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700' }}>
         {isLoading && <SkeletonBlock height={160} />}
         {isError && <ErrorState message="Failed to load providers." />}
         {!isLoading && !isError && rows.length === 0 && <EmptyState message="No providers match your filters." />}
         {!isLoading && !isError && rows.length > 0 && (
-          <Table size="small">
+          <TableContainer sx={{ maxHeight: 440 }}>
+          <Table size={dense ? 'small' : 'medium'} stickyHeader>
             <TableHead>
               <TableRow>
                 <TableCell sx={{ color: '#F1A501' }}>
@@ -173,12 +181,13 @@ const Providers: React.FC = () => {
                   <TableCell sx={{ color: '#F1A501' }} align="right">{r.total_amount.toFixed(2)}</TableCell>
                   <TableCell sx={{ color: '#F1A501' }} align="right">{r.avg_amount.toFixed(2)}</TableCell>
                   <TableCell sx={{ color: '#F1A501' }} align="right">{r.n_claims}</TableCell>
-                  <TableCell sx={{ color: '#F1A501' }}>{r.industry || ''}</TableCell>
-                  <TableCell sx={{ color: '#F1A501' }}>{r.region || ''}</TableCell>
+                  <TableCell sx={{ color: '#F1A501' }}>{r.industry ? <Chip size="small" label={r.industry} onClick={(e) => { e.stopPropagation(); setIndustry(r.industry || '') }} sx={{ bgcolor: '#111', border: '1px solid #B30700', color: '#F1A501' }} /> : ''}</TableCell>
+                  <TableCell sx={{ color: '#F1A501' }}>{r.region ? <Chip size="small" label={r.region} onClick={(e) => { e.stopPropagation(); setRegion(r.region || '') }} sx={{ bgcolor: '#111', border: '1px solid #B30700', color: '#F1A501' }} /> : ''}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+          </TableContainer>
         )}
       </Paper>
       <ProviderDetailDialog open={detailOpen} onClose={() => setDetailOpen(false)} detail={detail || undefined} />

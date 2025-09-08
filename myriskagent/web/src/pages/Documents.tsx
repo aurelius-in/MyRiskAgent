@@ -13,16 +13,18 @@ import DocumentViewer from '../components/DocumentViewer'
 
 const Documents: React.FC = () => {
   const { orgId } = useOrg()
-  const [q, setQ] = React.useState('')
+  const [q, setQ] = React.useState<string>(() => { try { return localStorage.getItem('mra_docs_q') || '' } catch { return '' } })
   const [ticker, setTicker] = React.useState('')
-  const [mode, setMode] = React.useState<'vector' | 'keyword'>('vector')
-  const [selected, setSelected] = React.useState<DocResult | null>(null)
-  const [domain, setDomain] = React.useState<string | null>(null)
+  const [mode, setMode] = React.useState<'vector' | 'keyword'>(() => { try { return ((localStorage.getItem('mra_docs_mode') as 'vector'|'keyword') || 'vector') } catch { return 'vector' } })
+  const [selected, setSelected] = React.useState<DocResult | null>(() => {
+    try { const raw = localStorage.getItem('mra_docs_selected'); return raw ? JSON.parse(raw) : null } catch { return null }
+  })
+  const [domain, setDomain] = React.useState<string | null>(() => { try { return localStorage.getItem('mra_docs_domain') || null } catch { return null } })
   const [recentLimit, setRecentLimit] = React.useState<number>(10)
   const [pinned, setPinned] = React.useState<DocResult[]>(() => {
     try { const raw = localStorage.getItem('mra_pinned_docs'); return raw ? JSON.parse(raw) : [] } catch { return [] }
   })
-  const [pinnedOnly, setPinnedOnly] = React.useState(false)
+  const [pinnedOnly, setPinnedOnly] = React.useState<boolean>(() => { try { return (localStorage.getItem('mra_docs_pinned_only') || 'false') === 'true' } catch { return false } })
   const [selectedIdx, setSelectedIdx] = React.useState<number>(-1)
 
   const recent = useQuery({
@@ -42,6 +44,14 @@ const Documents: React.FC = () => {
     },
   })
 
+  // Debounce search as user types
+  React.useEffect(() => {
+    const t = setTimeout(() => {
+      try { refetch() } catch {}
+    }, 350)
+    return () => clearTimeout(t)
+  }, [q, mode, orgId, refetch])
+
   const resultsAll = (data?.results ?? [])
   const results = resultsAll.filter(r => {
     if (!domain) return true
@@ -57,11 +67,24 @@ const Documents: React.FC = () => {
   const togglePin = (doc: DocResult) => {
     setPinned(prev => {
       const exists = prev.find(d => String(d.id) === String(doc.id))
-      const next = exists ? prev.filter(d => String(d.id) !== String(doc.id)) : [{ id: doc.id, title: doc.title, url: doc.url, snippet: doc.snippet }, ...prev]
+      const next = exists ? prev.filter(d => String(d.id) !== String(doc.id)) : [{ id: doc.id, title: doc.title, url: doc.url, snippet: doc.snippet, pinned_at: Date.now() }, ...prev]
       try { localStorage.setItem('mra_pinned_docs', JSON.stringify(next)) } catch {}
       return next
     })
   }
+
+  React.useEffect(() => {
+    try { localStorage.setItem('mra_docs_selected', selected ? JSON.stringify(selected) : '') } catch {}
+  }, [selected])
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('mra_docs_q', q)
+      localStorage.setItem('mra_docs_mode', mode)
+      localStorage.setItem('mra_docs_domain', domain || '')
+      localStorage.setItem('mra_docs_pinned_only', String(pinnedOnly))
+    } catch {}
+  }, [q, mode, domain, pinnedOnly])
 
   const fetchNews = async () => {
     await apiPost('/api/agents/news', { query: q, org: String(orgId) })
@@ -121,6 +144,9 @@ const Documents: React.FC = () => {
                 }
               } else if (e.key === 'Enter') {
                 if (selected && selected.url) window.open(selected.url, '_blank')
+              } else if (e.key === 'Escape') {
+                setSelectedIdx(-1)
+                setSelected(null)
               }
             }}
           >

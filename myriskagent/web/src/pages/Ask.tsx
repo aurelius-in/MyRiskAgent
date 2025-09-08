@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Typography, TextField, Button, Paper, Stack, FormGroup, FormControlLabel, Checkbox, Snackbar, Alert } from '@mui/material'
+import { Box, Typography, TextField, Button, Paper, Stack, FormGroup, FormControlLabel, Checkbox, Snackbar, Alert, Chip } from '@mui/material'
 import EmptyState from '../components/EmptyState'
 import ErrorState from '../components/ErrorState'
 import { apiPost } from '../lib/api'
@@ -150,10 +150,14 @@ const Ask: React.FC = () => {
         <Paper sx={{ p: 2, bgcolor: '#111', border: '1px solid #B30700', mb: 2, '& h1,& h2,& h3': { fontFamily: 'Special Elite, serif', color: '#B30700' }, '& p, & li': { color: '#F1A501' } }}>
           <div style={{ color: '#F1A501', marginBottom: 8, lineHeight: 1.5 }} dangerouslySetInnerHTML={{ __html: answer }} />
           <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 1 }}>
-            <SourceChips items={cites} />
+            <Stack direction="row" spacing={1} alignItems="center">
+              <SourceChips items={cites} />
+              <Chip size="small" label={`${cites.length} cites`} sx={{ bgcolor: '#111', border: '1px solid #B30700', color: '#F1A501' }} />
+            </Stack>
             <Stack direction="row" spacing={1}>
               <Button size="small" onClick={copyAnswerMarkdown}>Copy Answer</Button>
               <Button size="small" onClick={copyCitations}>Copy Citations</Button>
+              <Button size="small" onClick={() => { setAnswer(''); setCites([]) }}>Clear</Button>
             </Stack>
           </Stack>
         </Paper>
