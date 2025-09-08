@@ -7,6 +7,7 @@ import SkeletonBlock from '../components/SkeletonBlock'
 import { useOrg } from '../context/OrgContext'
 import EmptyState from '../components/EmptyState'
 import ErrorState from '../components/ErrorState'
+import DocumentViewer from '../components/DocumentViewer'
 
 const Documents: React.FC = () => {
   const { orgId } = useOrg()
@@ -94,11 +95,7 @@ const Documents: React.FC = () => {
         </Grid>
         <Grid item xs={12} md={7}>
           <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700', p: 1, minHeight: 240 }}>
-            {selected ? (
-              <iframe title="doc" src={selected.url} style={{ width: '100%', height: 360, border: 'none', background: '#000' }} />
-            ) : (
-              <div style={{ color: '#F1A501' }}>{showRecent ? 'Select a recent document to preview.' : 'Select a document to preview.'}</div>
-            )}
+            <DocumentViewer doc={selected} />
           </Paper>
         </Grid>
       </Grid>

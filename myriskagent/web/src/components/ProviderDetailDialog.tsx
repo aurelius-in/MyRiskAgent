@@ -1,5 +1,5 @@
 import React from 'react'
-import { Dialog, DialogTitle, DialogContent, IconButton, Typography } from '@mui/material'
+import { Dialog, DialogTitle, DialogContent, IconButton, Typography, Stack, Chip } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import ReactECharts from 'echarts-for-react'
 
@@ -34,7 +34,11 @@ const ProviderDetailDialog: React.FC<Props> = ({ open, onClose, detail }) => {
         </IconButton>
       </DialogTitle>
       <DialogContent sx={{ bgcolor: '#000' }}>
-        <Typography sx={{ color: '#F1A501', mb: 1 }}>Claims: {detail?.count ?? 0} • Total: {detail?.total?.toFixed(2) ?? '0.00'} • Avg: {detail?.avg?.toFixed(2) ?? '0.00'}</Typography>
+        <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap' }}>
+          <Chip label={`Claims ${detail?.count ?? 0}`} sx={{ bgcolor: '#111', border: '1px solid #B30700', color: '#F1A501' }} />
+          <Chip label={`Total ${detail?.total?.toFixed(2) ?? '0.00'}`} sx={{ bgcolor: '#111', border: '1px solid #B30700', color: '#F1A501' }} />
+          <Chip label={`Avg ${detail?.avg?.toFixed(2) ?? '0.00'}`} sx={{ bgcolor: '#111', border: '1px solid #B30700', color: '#F1A501' }} />
+        </Stack>
         <ReactECharts option={option} style={{ height: 240 }} />
       </DialogContent>
     </Dialog>
