@@ -1,20 +1,22 @@
 import React from 'react'
 import { Box, Grid, Typography, Paper, Button } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
-import { apiPost, apiGetBlob } from '../lib/api'
+import { apiPost } from '../lib/api'
 import RiskGauge from '../components/RiskGauge'
 import TrendSparkline from '../components/TrendSparkline'
 import WhatIfPanel from '../components/WhatIfPanel'
 import SkeletonBlock from '../components/SkeletonBlock'
+import { useOrg } from '../context/OrgContext'
 
 interface ScoreFamily { score: number; confidence: number }
 interface ProfileResp { scores: Record<string, ScoreFamily> }
 
 const Overview: React.FC = () => {
+  const { orgId } = useOrg()
   const { data, refetch, isFetching, isError } = useQuery({
-    queryKey: ['profile', 1, 'latest'],
+    queryKey: ['profile', orgId, 'latest'],
     queryFn: async () => {
-      const resp = await apiPost<ProfileResp>('/api/risk/recompute/1/latest', {})
+      const resp = await apiPost<ProfileResp>(`/api/risk/recompute/${orgId}/latest`, {})
       return resp
     },
     staleTime: 15_000,
@@ -29,13 +31,13 @@ const Overview: React.FC = () => {
   const combined = data?.scores?.['Combined Index']?.score ?? 44
 
   const applyWhatIf = async (params: { alpha: number; beta: number; gamma: number; delta: number }) => {
-    await apiPost('/api/risk/recompute/1/latest', { params })
+    await apiPost(`/api/risk/recompute/${orgId}/latest`, { params })
     await refetch()
     setOpen(false)
   }
 
   const downloadEvidence = async () => {
-    const res = await fetch('/api/evidence/org/1/latest')
+    const res = await fetch(`/api/evidence/org/${orgId}/latest`)
     if (res.ok) {
       const data = await res.json()
       if (data?.uri) {

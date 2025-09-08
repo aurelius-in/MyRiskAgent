@@ -6,16 +6,18 @@ import SkeletonBlock from '../components/SkeletonBlock'
 import OutliersTable from '../components/OutliersTable'
 import type { ScoresListResp, OutliersResp } from '../lib/types'
 import { exportToCsv } from '../lib/csv'
+import { useOrg } from '../context/OrgContext'
 
 const Scores: React.FC = () => {
+  const { orgId } = useOrg()
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['scores', 1, 'latest'],
-    queryFn: async () => apiGet<ScoresListResp>('/api/scores/1/latest'),
+    queryKey: ['scores', orgId, 'latest'],
+    queryFn: async () => apiGet<ScoresListResp>(`/api/scores/${orgId}/latest`),
   })
 
   const outliers = useQuery({
-    queryKey: ['outliers', 1, 'latest'],
-    queryFn: async () => apiGet<OutliersResp>('/api/outliers/providers?org_id=1&period=latest'),
+    queryKey: ['outliers', orgId, 'latest'],
+    queryFn: async () => apiGet<OutliersResp>(`/api/outliers/providers?org_id=${orgId}&period=latest`),
   })
 
   const exportOutliers = () => {
@@ -29,7 +31,7 @@ const Scores: React.FC = () => {
     if (!file) return
     const form = new FormData()
     form.append('file', file)
-    await fetch('/api/ingest/claims?org_id=1', { method: 'POST', body: form })
+    await fetch(`/api/ingest/claims?org_id=${orgId}`, { method: 'POST', body: form })
     await Promise.all([refetch(), outliers.refetch()])
     e.target.value = ''
   }
