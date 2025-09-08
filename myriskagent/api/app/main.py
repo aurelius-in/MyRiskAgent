@@ -216,6 +216,14 @@ async def report_executive(org_id: int, period: str):
     return {"html": rep.html, "summary": rep.summary}
 
 
+@app.post("/report/full/{org_id}/{period}")
+async def report_full(org_id: int, period: str):
+    if NARRATOR is None:
+        raise HTTPException(status_code=500, detail="Narrator not initialized")
+    rep = await NARRATOR.build_reports({"org_id": org_id, "period": period, "mode": "full"})
+    return {"html": rep.html, "summary": rep.summary}
+
+
 @app.get("/evidence/{entity}/{id}/{period}")
 async def get_evidence(entity: str, id: str, period: str):
     if EVIDENCE is None:
