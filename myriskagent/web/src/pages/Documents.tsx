@@ -1,5 +1,7 @@
 import React from 'react'
-import { Box, Typography, TextField, Button, List, ListItem, ListItemText, Paper, Grid, Stack, ToggleButtonGroup, ToggleButton, Autocomplete } from '@mui/material'
+import { Box, Typography, TextField, Button, List, ListItem, ListItemText, Paper, Grid, Stack, ToggleButtonGroup, ToggleButton, Autocomplete, IconButton } from '@mui/material'
+import StarBorder from '@mui/icons-material/StarBorder'
+import Star from '@mui/icons-material/Star'
 import { useQuery } from '@tanstack/react-query'
 import { apiGet, apiPost } from '../lib/api'
 import type { DocResult } from '../lib/types'
@@ -112,16 +114,34 @@ const Documents: React.FC = () => {
             {!isFetching && !isError && (
               <>
                 <List>
-                  {results.map((r) => (
-                    <ListItem key={r.id} button onClick={() => setSelected(r)}>
-                      <ListItemText primary={r.title} secondary={r.snippet} sx={{ color: '#F1A501' }} />
-                    </ListItem>
-                  ))}
-                  {results.length === 0 && recent.data && recent.data.results && recent.data.results.map((r) => (
-                    <ListItem key={`recent-${r.id}`} button onClick={() => setSelected(r)}>
-                      <ListItemText primary={r.title} secondary={r.snippet} sx={{ color: '#F1A501' }} />
-                    </ListItem>
-                  ))}
+                  {results.map((r) => {
+                    const pinnedOn = !!pinned.find(d => String(d.id) === String(r.id))
+                    return (
+                      <ListItem key={r.id} button onClick={() => setSelected(r)}
+                        secondaryAction={
+                          <IconButton edge="end" onClick={(e) => { e.stopPropagation(); togglePin(r) }} sx={{ color: '#F1A501' }}>
+                            {pinnedOn ? <Star /> : <StarBorder />}
+                          </IconButton>
+                        }
+                      >
+                        <ListItemText primary={r.title} secondary={r.snippet} sx={{ color: '#F1A501' }} />
+                      </ListItem>
+                    )
+                  })}
+                  {results.length === 0 && recent.data && recent.data.results && recent.data.results.map((r) => {
+                    const pinnedOn = !!pinned.find(d => String(d.id) === String(r.id))
+                    return (
+                      <ListItem key={`recent-${r.id}`} button onClick={() => setSelected(r)}
+                        secondaryAction={
+                          <IconButton edge="end" onClick={(e) => { e.stopPropagation(); togglePin(r) }} sx={{ color: '#F1A501' }}>
+                            {pinnedOn ? <Star /> : <StarBorder />}
+                          </IconButton>
+                        }
+                      >
+                        <ListItemText primary={r.title} secondary={r.snippet} sx={{ color: '#F1A501' }} />
+                      </ListItem>
+                    )
+                  })}
                   {results.length === 0 && (!recent.data || (recent.data.results || []).length === 0) && (
                     <EmptyState message="No results yet." />
                   )}

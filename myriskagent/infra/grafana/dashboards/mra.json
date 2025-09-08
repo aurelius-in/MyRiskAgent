@@ -65,9 +65,17 @@
       "type": "table",
       "title": "Per-Path P95 Latency (s)",
       "targets": [
-        { "expr": "histogram_quantile(0.95, sum by (le, path) (rate(mra_request_latency_seconds_bucket{path!=""}[5m])))" }
+        { "expr": "histogram_quantile(0.95, sum by (le, path) (rate(mra_request_latency_seconds_bucket{path!=\\\"\\\"}[5m])))" }
       ],
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 32 }
+    },
+    {
+      "type": "table",
+      "title": "Requests by Method",
+      "targets": [
+        { "expr": "sum by (method) (rate(mra_requests_total[5m]))" }
+      ],
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 40 }
     }
   ],
   "schemaVersion": 38,
