@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Typography, TextField, Button, List, ListItem, ListItemText, Paper, Grid, Stack, ToggleButtonGroup, ToggleButton, Autocomplete, IconButton } from '@mui/material'
+import { Box, Typography, TextField, Button, List, ListItem, ListItemText, Paper, Grid, Stack, ToggleButtonGroup, ToggleButton, Autocomplete, IconButton, FormControlLabel, Switch } from '@mui/material'
 import StarBorder from '@mui/icons-material/StarBorder'
 import Star from '@mui/icons-material/Star'
 import { useQuery } from '@tanstack/react-query'
@@ -22,6 +22,7 @@ const Documents: React.FC = () => {
   const [pinned, setPinned] = React.useState<DocResult[]>(() => {
     try { const raw = localStorage.getItem('mra_pinned_docs'); return raw ? JSON.parse(raw) : [] } catch { return [] }
   })
+  const [pinnedOnly, setPinnedOnly] = React.useState(false)
 
   const recent = useQuery({
     queryKey: ['docs-recent', orgId, recentLimit],
@@ -40,10 +41,12 @@ const Documents: React.FC = () => {
     },
   })
 
-  const results = (data?.results ?? []).filter(r => {
+  const resultsAll = (data?.results ?? [])
+  const results = resultsAll.filter(r => {
     if (!domain) return true
     try { return (r.url || '').includes(domain) } catch { return true }
   })
+  .filter(r => !pinnedOnly || !!pinned.find(d => String(d.id) === String(r.id)))
   const domainOptions = React.useMemo(() => {
     const urls = (data?.results ?? []).map(r => r.url || '')
     const hosts = urls.map(u => { try { return new URL(u).host } catch { return '' } }).filter(Boolean)
@@ -88,6 +91,7 @@ const Documents: React.FC = () => {
           sx={{ input: { color: '#F1A501' }, label: { color: '#F1A501' }, width: 200 }}
         />
         <Autocomplete options={domainOptions} value={domain} onChange={(_, v) => setDomain(v)} renderInput={(params) => <TextField {...params} size="small" placeholder="Domain filter" />} sx={{ width: 220 }} />
+        <FormControlLabel control={<Switch checked={pinnedOnly} onChange={(e) => setPinnedOnly(e.target.checked)} />} label="Pinned only" sx={{ color: '#F1A501' }} />
         <Button variant="outlined" onClick={() => refetch()} disabled={isFetching} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Search</Button>
         <Button variant="outlined" onClick={fetchNews} disabled={isFetching} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Fetch Recent News</Button>
         <Button variant="outlined" onClick={fetchFilings} disabled={isFetching} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Fetch Filings</Button>

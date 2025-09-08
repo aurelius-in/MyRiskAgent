@@ -60,6 +60,7 @@ VECTOR_STORE: InMemoryVectorStore | PgVectorStore | None = None
 # Basic request counter
 REQUEST_COUNTER = Counter("mra_requests_total", "Total HTTP requests", ["path", "method", "status"])
 REQUEST_LATENCY = Histogram("mra_request_latency_seconds", "Request latency in seconds", ["path", "method"])
+REQUEST_ERRORS = Counter("mra_requests_errors_total", "HTTP 5xx error responses", ["path", "method", "status"])
 
 # Agents configured at startup
 NARRATOR: Optional[NarratorAgent] = None
@@ -86,6 +87,8 @@ async def metrics_middleware(request: Request, call_next):
         REQUEST_COUNTER.labels(path=request.url.path, method=request.method, status=str(response.status_code)).inc()
         elapsed = max(asyncio.get_event_loop().time() - start, 0.0)
         REQUEST_LATENCY.labels(path=request.url.path, method=request.method).observe(elapsed)
+        if 500 <= int(getattr(response, "status_code", 0)):
+            REQUEST_ERRORS.labels(path=request.url.path, method=request.method, status=str(response.status_code)).inc()
     except Exception:
         pass
     return response

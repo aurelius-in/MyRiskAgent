@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Grid, Typography, Paper, Button, List, ListItem, ListItemText, Divider } from '@mui/material'
+import { Box, Grid, Typography, Paper, Button, List, ListItem, ListItemText, Divider, Stack } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { apiPost } from '../lib/api'
 import RiskGauge from '../components/RiskGauge'
@@ -116,14 +116,45 @@ const Overview: React.FC = () => {
           </Grid>
           <Grid item xs={12}>
             <Paper sx={{ p: 2, bgcolor: '#111', border: '1px solid #B30700' }}>
-              <Typography variant="h6" sx={{ color: '#F1A501', fontFamily: 'Special Elite, serif', mb: 1 }}>Pinned Documents</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="h6" sx={{ color: '#F1A501', fontFamily: 'Special Elite, serif' }}>Pinned Documents</Typography>
+                <Stack direction="row" spacing={1}>
+                  <Button size="small" onClick={() => {
+                    const header = 'title,url\n'
+                    const rows = pinned.map(d => `${(d.title || '').replaceAll('"','')},${d.url || ''}`).join('\n')
+                    const csv = header + rows + (rows ? '\n' : '')
+                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = 'pinned_documents.csv'
+                    document.body.appendChild(a)
+                    a.click()
+                    document.body.removeChild(a)
+                    URL.revokeObjectURL(url)
+                  }}>Export CSV</Button>
+                  <Button size="small" onClick={() => {
+                    setPinned([])
+                    try { localStorage.setItem('mra_pinned_docs', JSON.stringify([])) } catch {}
+                  }}>Clear All</Button>
+                </Stack>
+              </Box>
               {pinned.length === 0 ? (
                 <EmptyState message="No pinned documents yet." />)
                 : (
                   <List>
                     {pinned.slice(0, 8).map((d, idx) => (
-                      <ListItem key={`pin-${idx}`} component="a" href={d.url} target="_blank">
+                      <ListItem key={`pin-${idx}`}>
                         <ListItemText primary={d.title} secondary={d.snippet} sx={{ color: '#F1A501' }} />
+                        <Stack direction="row" spacing={1}>
+                          <Button size="small" onClick={() => { if (d.url) window.open(d.url, '_blank') }}>Open</Button>
+                          <Button size="small" onClick={async () => { try { await navigator.clipboard.writeText(d.url || '') } catch {} }}>Copy</Button>
+                          <Button size="small" onClick={() => {
+                            const next = pinned.filter(x => String(x.id) !== String(d.id))
+                            setPinned(next)
+                            try { localStorage.setItem('mra_pinned_docs', JSON.stringify(next)) } catch {}
+                          }}>Unpin</Button>
+                        </Stack>
                       </ListItem>
                     ))}
                   </List>

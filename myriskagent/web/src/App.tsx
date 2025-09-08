@@ -1,5 +1,5 @@
 import React from 'react'
-import { AppBar, Box, CssBaseline, LinearProgress, Tab, Tabs, Toolbar, Typography } from '@mui/material'
+import { AppBar, Box, CssBaseline, LinearProgress, Tab, Tabs, Toolbar, Typography, Chip } from '@mui/material'
 import { QueryClientProvider, useQuery, useIsFetching } from '@tanstack/react-query'
 import { queryClient } from './lib/query'
 import Overview from './pages/Overview'
@@ -57,6 +57,7 @@ const App: React.FC = () => {
                 <span style={{ color: '#B30700', margin: '0 6px' }}>Risk</span>
                 <span style={{ fontFamily: 'Arial, sans-serif' }}>Agent</span>
               </Typography>
+              <Chip size="small" label="OK" sx={{ bgcolor: '#111', border: '1px solid #0a0', color: '#0f0', mr: 1 }} />
               <OrgSelector />
               <Tabs
                 value={tab}
