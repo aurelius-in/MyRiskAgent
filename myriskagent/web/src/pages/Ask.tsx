@@ -39,6 +39,17 @@ const Ask: React.FC = () => {
     }
   }
 
+  const fullReport = async () => {
+    setLoading(true)
+    try {
+      const res = await apiPost<{ html: string; summary: unknown }>(`/api/report/full/1/latest`, {})
+      setReportHtml(res.html || '')
+      setOpenReport(true)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <Box>
       <Typography variant="h4" gutterBottom>Ask</Typography>
@@ -55,6 +66,7 @@ const Ask: React.FC = () => {
         />
         <Button variant="outlined" onClick={ask} disabled={loading} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Ask</Button>
         <Button variant="outlined" onClick={execBrief} disabled={loading} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Executive Brief</Button>
+        <Button variant="outlined" onClick={fullReport} disabled={loading} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Full Report</Button>
       </Stack>
       {answer && (
         <Paper sx={{ p: 2, bgcolor: '#111', border: '1px solid #B30700' }}>
@@ -62,7 +74,7 @@ const Ask: React.FC = () => {
           <SourceChips items={cites} />
         </Paper>
       )}
-      <HtmlDialog open={openReport} onClose={() => setOpenReport(false)} title="Executive Brief" html={reportHtml} />
+      <HtmlDialog open={openReport} onClose={() => setOpenReport(false)} title="Report" html={reportHtml} />
     </Box>
   )
 }
