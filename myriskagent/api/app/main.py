@@ -5,6 +5,8 @@ from typing import Optional
 
 from fastapi import Depends, FastAPI, UploadFile, File, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+import io as _io_for_pdf
 from pydantic import BaseModel
 from sqlmodel import SQLModel, create_engine
 
@@ -322,6 +324,28 @@ async def report_full(org_id: int, period: str):
         raise HTTPException(status_code=500, detail="Narrator not initialized")
     rep = await NARRATOR.build_reports({"org_id": org_id, "period": period, "mode": "full"})
     return {"html": rep.html, "summary": rep.summary}
+
+
+@app.get("/report/pdf/{org_id}/{period}")
+async def report_pdf(org_id: int, period: str):
+    try:
+        from reportlab.pdfgen import canvas  # type: ignore
+    except Exception as e:  # pragma: no cover
+        raise HTTPException(status_code=500, detail=f"PDF generation not available: {e}")
+
+    buffer = _io_for_pdf.BytesIO()
+    c = canvas.Canvas(buffer)
+    c.setTitle(f"MyRiskAgent Report {org_id} {period}")
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(72, 800, "MyRiskAgent Report")
+    c.setFont("Helvetica", 11)
+    c.drawString(72, 780, f"Org: {org_id}  Period: {period}")
+    c.drawString(72, 760, "This is a minimal PDF placeholder for the full report.")
+    c.showPage()
+    c.save()
+    buffer.seek(0)
+    headers = {"Content-Disposition": f"attachment; filename=report_{org_id}_{period}.pdf"}
+    return StreamingResponse(buffer, media_type="application/pdf", headers=headers)
 
 
 @app.get("/evidence/{entity}/{id}/{period}")

@@ -65,6 +65,20 @@ const Ask: React.FC = () => {
     }
   }
 
+  const downloadPdf = async () => {
+    const resp = await fetch(`/api/report/pdf/${orgId}/latest`)
+    if (!resp.ok) return
+    const blob = await resp.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `report_${orgId}_latest.pdf`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <Box>
       <Typography variant="h4" gutterBottom>Ask</Typography>
@@ -83,6 +97,7 @@ const Ask: React.FC = () => {
         <Button variant="outlined" onClick={execBrief} disabled={loading} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Executive Brief</Button>
         <Button variant="outlined" onClick={fullReport} disabled={loading} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Full Report</Button>
         <Button variant="outlined" onClick={checkSanctions} disabled={loading} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Sanctions</Button>
+        <Button variant="outlined" onClick={downloadPdf} disabled={loading} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Download PDF</Button>
       </Stack>
       {answer && (
         <Paper sx={{ p: 2, bgcolor: '#111', border: '1px solid #B30700', mb: 2 }}>
