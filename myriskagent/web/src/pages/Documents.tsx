@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Typography, TextField, Button, List, ListItem, ListItemText, Paper, Grid, Stack, ToggleButtonGroup, ToggleButton } from '@mui/material'
+import { Box, Typography, TextField, Button, List, ListItem, ListItemText, Paper, Grid, Stack, ToggleButtonGroup, ToggleButton, Autocomplete } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { apiGet, apiPost } from '../lib/api'
 import type { DocResult } from '../lib/types'
@@ -15,6 +15,7 @@ const Documents: React.FC = () => {
   const [ticker, setTicker] = React.useState('')
   const [mode, setMode] = React.useState<'vector' | 'keyword'>('vector')
   const [selected, setSelected] = React.useState<DocResult | null>(null)
+  const [domain, setDomain] = React.useState<string | null>(null)
 
   const recent = useQuery({
     queryKey: ['docs-recent', orgId],
@@ -33,7 +34,15 @@ const Documents: React.FC = () => {
     },
   })
 
-  const results = data?.results ?? []
+  const results = (data?.results ?? []).filter(r => {
+    if (!domain) return true
+    try { return (r.url || '').includes(domain) } catch { return true }
+  })
+  const domainOptions = React.useMemo(() => {
+    const urls = (data?.results ?? []).map(r => r.url || '')
+    const hosts = urls.map(u => { try { return new URL(u).host } catch { return '' } }).filter(Boolean)
+    return Array.from(new Set(hosts))
+  }, [data])
 
   const fetchNews = async () => {
     await apiPost('/api/agents/news', { query: q, org: String(orgId) })
@@ -63,6 +72,7 @@ const Documents: React.FC = () => {
           InputProps={{ sx: { color: '#F1A501' } }}
           sx={{ input: { color: '#F1A501' }, label: { color: '#F1A501' }, width: 200 }}
         />
+        <Autocomplete options={domainOptions} value={domain} onChange={(_, v) => setDomain(v)} renderInput={(params) => <TextField {...params} size="small" placeholder="Domain filter" />} sx={{ width: 220 }} />
         <Button variant="outlined" onClick={() => refetch()} disabled={isFetching} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Search</Button>
         <Button variant="outlined" onClick={fetchNews} disabled={isFetching} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Fetch Recent News</Button>
         <Button variant="outlined" onClick={fetchFilings} disabled={isFetching} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Fetch Filings</Button>
