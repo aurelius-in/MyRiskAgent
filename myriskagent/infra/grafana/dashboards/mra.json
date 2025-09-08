@@ -44,6 +44,22 @@
         { "expr": "histogram_quantile(0.95, sum by (le) (rate(mra_request_latency_seconds_bucket[5m])))" }
       ],
       "gridPos": { "h": 4, "w": 6, "x": 0, "y": 28 }
+    },
+    {
+      "type": "stat",
+      "title": "P50 Latency (s)",
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum by (le) (rate(mra_request_latency_seconds_bucket[5m])))" }
+      ],
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 28 }
+    },
+    {
+      "type": "stat",
+      "title": "P99 Latency (s)",
+      "targets": [
+        { "expr": "histogram_quantile(0.99, sum by (le) (rate(mra_request_latency_seconds_bucket[5m])))" }
+      ],
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 28 }
     }
   ],
   "schemaVersion": 38,

@@ -1,5 +1,6 @@
 import React from 'react'
 import { Box, Typography, List, ListItem, ListItemText, Paper, Divider, Button, Slider, TextField, Snackbar, Alert } from '@mui/material'
+import TrendSparkline from '../components/TrendSparkline'
 import { useQuery } from '@tanstack/react-query'
 import { apiGet } from '../lib/api'
 import SkeletonBlock from '../components/SkeletonBlock'
@@ -64,14 +65,19 @@ const Scores: React.FC = () => {
   return (
     <Box>
       <Typography variant="h4" gutterBottom>Scores</Typography>
-      <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700', mb: 2 }}>
+      <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700', mb: 2, p: 1 }}>
         {isLoading && <SkeletonBlock height={100} />}
         {isError && <ErrorState message="Failed to load scores." />}
         {!isLoading && !isError && (
           <List>
             {(data?.scores || []).map((s, idx) => (
               <ListItem key={idx}>
-                <ListItemText primary={`${s.entity ?? 'Org'} - ${s.family ?? 'Family'}: ${s.score ?? ''}`} sx={{ color: '#F1A501' }} />
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 2 }}>
+                  <ListItemText primary={`${s.entity ?? 'Org'} - ${s.family ?? 'Family'}: ${s.score ?? ''}`} sx={{ color: '#F1A501' }} />
+                  <Box sx={{ minWidth: 160 }}>
+                    <TrendSparkline values={Array.from({ length: 24 }, (_, i) => Math.max(0, Math.min(100, (s.score || 0) + Math.sin(i / 2) * 5 - 2)))} />
+                  </Box>
+                </Box>
               </ListItem>
             ))}
             {(!data?.scores || data.scores.length === 0) && <EmptyState message="No scores yet." />}

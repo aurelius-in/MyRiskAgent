@@ -122,7 +122,7 @@ const Ask: React.FC = () => {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>Ask</Typography>
+      <Typography variant="h4" gutterBottom sx={{ fontFamily: 'Special Elite, serif', letterSpacing: 0.5 }}>Ask</Typography>
       <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
         <TextField
           fullWidth
@@ -147,8 +147,8 @@ const Ask: React.FC = () => {
       {error && <ErrorState message={error} />}
       {!error && !answer && !loading && <EmptyState message="Ask a question to get started." />}
       {answer && (
-        <Paper sx={{ p: 2, bgcolor: '#111', border: '1px solid #B30700', mb: 2 }}>
-          <div style={{ color: '#F1A501', marginBottom: 8 }} dangerouslySetInnerHTML={{ __html: answer }} />
+        <Paper sx={{ p: 2, bgcolor: '#111', border: '1px solid #B30700', mb: 2, '& h1,& h2,& h3': { fontFamily: 'Special Elite, serif', color: '#B30700' }, '& p, & li': { color: '#F1A501' } }}>
+          <div style={{ color: '#F1A501', marginBottom: 8, lineHeight: 1.5 }} dangerouslySetInnerHTML={{ __html: answer }} />
           <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 1 }}>
             <SourceChips items={cites} />
             <Stack direction="row" spacing={1}>
