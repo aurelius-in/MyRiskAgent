@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlmodel import SQLModel, create_engine
 
 from .config import get_settings, Settings
-from .search.vector import InMemoryVectorStore, DocumentUpsert
+from .search.vector import InMemoryVectorStore, DocumentUpsert, PgVectorStore  # updated import
 from .agents.provider_outlier import ProviderOutlierAgent
 from .agents.narrator import NarratorAgent
 from .agents.evidence import EvidenceAgent
@@ -37,8 +37,8 @@ app.add_middleware(
 )
 
 
-# Simple in-memory vector store for MVP
-VECTOR_STORE = InMemoryVectorStore()
+# Simple vector store (configured at startup)
+VECTOR_STORE: InMemoryVectorStore | PgVectorStore | None = None
 
 # Basic request counter
 REQUEST_COUNTER = Counter("mra_requests_total", "Total HTTP requests", ["path", "method", "status"])
@@ -65,17 +65,32 @@ def get_engine(settings: Settings = Depends(get_settings)):
 
 @app.on_event("startup")
 async def startup_event():
-    global NARRATOR, EVIDENCE
+    global NARRATOR, EVIDENCE, VECTOR_STORE
     settings = get_settings()
     engine = create_engine(settings.sqlalchemy_database_uri, echo=False)
     SQLModel.metadata.create_all(engine)
+
+    # Configure vector store backend
+    if settings.vector_backend == "pgvector":
+        # Ensure extension exists
+        with engine.begin() as conn:
+            try:
+                conn.exec_driver_sql("CREATE EXTENSION IF NOT EXISTS vector;")
+            except Exception:
+                pass
+        VECTOR_STORE = PgVectorStore(settings.sqlalchemy_database_uri)
+    else:
+        VECTOR_STORE = InMemoryVectorStore()
+
     # Seed a couple demo documents into the vector store
-    VECTOR_STORE.upsert_documents(
-        [
-            DocumentUpsert(id=None, org_id=1, title="ACME Q4 Results", url="https://example.com/acme-q4", content="ACME reported steady margins and lower debt."),
-            DocumentUpsert(id=None, org_id=1, title="ACME Litigation Update", url="https://example.com/acme-litigation", content="A minor litigation was settled with no material impact."),
-        ]
-    )
+    if VECTOR_STORE is not None:
+        VECTOR_STORE.upsert_documents(
+            [
+                DocumentUpsert(id=None, org_id=1, title="ACME Q4 Results", url="https://example.com/acme-q4", content="ACME reported steady margins and lower debt."),
+                DocumentUpsert(id=None, org_id=1, title="ACME Litigation Update", url="https://example.com/acme-litigation", content="A minor litigation was settled with no material impact."),
+            ]
+        )
+
     # Agents
     NARRATOR = NarratorAgent(openai_api_key=settings.openai_api_key)
     EVIDENCE = EvidenceAgent(store=ObjectStore(base_uri=settings.object_store_uri))
@@ -186,6 +201,8 @@ async def outliers_providers(org_id: int = Query(...), period: str = Query(...))
 
 @app.get("/docs/search")
 async def docs_search(q: str, org_id: Optional[int] = None):
+    if VECTOR_STORE is None:
+        raise HTTPException(status_code=500, detail="Vector store not initialized")
     results = VECTOR_STORE.search(q, org_id=org_id, k=5)
     for r in results:
         r.setdefault("snippet", r.get("title") or "")
