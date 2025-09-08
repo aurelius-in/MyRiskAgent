@@ -4,9 +4,11 @@ import type { DocResult } from '../lib/types'
 
 interface Props {
   doc: DocResult | null
+  onTogglePin?: (doc: DocResult) => void
+  isPinned?: boolean
 }
 
-const DocumentViewer: React.FC<Props> = ({ doc }) => {
+const DocumentViewer: React.FC<Props> = ({ doc, onTogglePin, isPinned }) => {
   const [copiedOpen, setCopiedOpen] = React.useState(false)
   if (!doc) {
     return <div style={{ color: '#F1A501' }}>Select a document to preview.</div>
@@ -29,6 +31,9 @@ const DocumentViewer: React.FC<Props> = ({ doc }) => {
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
         <Typography variant="h6" sx={{ color: '#F1A501', fontFamily: 'Special Elite, serif' }}>{doc.title || 'Untitled'}</Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
+          {onTogglePin && (
+            <Button onClick={() => onTogglePin(doc)}>{isPinned ? 'Unpin' : 'Pin'}</Button>
+          )}
           <Button onClick={openSource} disabled={!doc.url}>Open source</Button>
           <Button onClick={copyLink} disabled={!doc.url}>Copy link</Button>
         </Box>

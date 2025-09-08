@@ -10,6 +10,7 @@ interface ProviderDetail {
   total: number
   avg: number
   series: { date: string; amount: number }[]
+  notes?: string
 }
 
 interface Props {
@@ -70,6 +71,9 @@ const ProviderDetailDialog: React.FC<Props> = ({ open, onClose, detail }) => {
           }}>Export CSV</Button>
         </Box>
         <ReactECharts option={option} style={{ height: 240 }} />
+        {detail?.notes && (
+          <Typography sx={{ color: '#F1A501', mt: 1, whiteSpace: 'pre-wrap' }}>{detail.notes}</Typography>
+        )}
       </DialogContent>
     </Dialog>
   )

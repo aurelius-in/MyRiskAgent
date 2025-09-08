@@ -17,6 +17,9 @@ const Documents: React.FC = () => {
   const [selected, setSelected] = React.useState<DocResult | null>(null)
   const [domain, setDomain] = React.useState<string | null>(null)
   const [recentLimit, setRecentLimit] = React.useState<number>(10)
+  const [pinned, setPinned] = React.useState<DocResult[]>(() => {
+    try { const raw = localStorage.getItem('mra_pinned_docs'); return raw ? JSON.parse(raw) : [] } catch { return [] }
+  })
 
   const recent = useQuery({
     queryKey: ['docs-recent', orgId, recentLimit],
@@ -44,6 +47,15 @@ const Documents: React.FC = () => {
     const hosts = urls.map(u => { try { return new URL(u).host } catch { return '' } }).filter(Boolean)
     return Array.from(new Set(hosts))
   }, [data])
+
+  const togglePin = (doc: DocResult) => {
+    setPinned(prev => {
+      const exists = prev.find(d => String(d.id) === String(doc.id))
+      const next = exists ? prev.filter(d => String(d.id) !== String(doc.id)) : [{ id: doc.id, title: doc.title, url: doc.url, snippet: doc.snippet }, ...prev]
+      try { localStorage.setItem('mra_pinned_docs', JSON.stringify(next)) } catch {}
+      return next
+    })
+  }
 
   const fetchNews = async () => {
     await apiPost('/api/agents/news', { query: q, org: String(orgId) })
@@ -82,6 +94,19 @@ const Documents: React.FC = () => {
       <Grid container spacing={2}>
         <Grid item xs={12} md={5}>
           <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700', p: 1 }}>
+            {!!pinned.length && (
+              <>
+                <Typography variant="subtitle1" sx={{ color: '#B30700', fontFamily: 'Special Elite, serif' }}>Pinned</Typography>
+                <List>
+                  {pinned.map((r) => (
+                    <ListItem key={`pin-${r.id}`} button onClick={() => setSelected(r)}>
+                      <ListItemText primary={r.title} secondary={r.snippet} sx={{ color: '#F1A501' }} />
+                    </ListItem>
+                  ))}
+                </List>
+                <Divider sx={{ borderColor: '#222', my: 1 }} />
+              </>
+            )}
             {isFetching && <SkeletonBlock height={100} />}
             {isError && <ErrorState message="Search failed. Try again." />}
             {!isFetching && !isError && (
@@ -112,7 +137,7 @@ const Documents: React.FC = () => {
         </Grid>
         <Grid item xs={12} md={7}>
           <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700', p: 1, minHeight: 240 }}>
-            <DocumentViewer doc={selected} />
+            <DocumentViewer doc={selected} onTogglePin={togglePin} isPinned={!!selected && !!pinned.find(d => String(d.id) === String(selected.id))} />
           </Paper>
         </Grid>
       </Grid>
