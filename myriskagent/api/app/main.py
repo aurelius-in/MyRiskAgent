@@ -50,6 +50,9 @@ REQUEST_COUNTER = Counter("mra_requests_total", "Total HTTP requests", ["path", 
 NARRATOR: Optional[NarratorAgent] = None
 EVIDENCE: Optional[EvidenceAgent] = None
 
+# In-memory claims store for MVP
+CLAIMS_BY_ORG: dict[int, pd.DataFrame] = {}
+
 
 @app.middleware("http")
 async def metrics_middleware(request: Request, call_next):
@@ -117,7 +120,7 @@ class IngestExternalRequest(BaseModel):
 
 
 @app.post("/ingest/claims")
-async def ingest_claims(file: UploadFile = File(...)):
+async def ingest_claims(file: UploadFile = File(...), org_id: int = Query(1)):
     content = await file.read()
     if not content:
         raise HTTPException(status_code=400, detail="Empty file")
@@ -130,7 +133,6 @@ async def ingest_claims(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to parse file: {e}")
 
-    # Minimal normalization for expected columns
     if "claim_amount" not in df.columns:
         for cand in ["amount", "paid_amount", "total"]:
             if cand in df.columns:
@@ -138,6 +140,12 @@ async def ingest_claims(file: UploadFile = File(...)):
                 break
     if "provider_id" not in df.columns and "provider" in df.columns:
         df = df.rename(columns={"provider": "provider_id"})
+
+    # Save to in-memory store
+    try:
+        CLAIMS_BY_ORG[org_id] = df.copy()
+    except Exception:
+        pass
 
     # Compute provider outliers if possible
     outliers = []
@@ -147,7 +155,7 @@ async def ingest_claims(file: UploadFile = File(...)):
     except Exception:
         outliers = []
 
-    return {"received_rows": int(len(df)), "outliers": outliers}
+    return {"org_id": org_id, "received_rows": int(len(df)), "outliers": outliers}
 
 
 @app.post("/ingest/external")
@@ -195,6 +203,25 @@ async def get_scores(org_id: int, period: str):
 
 @app.get("/outliers/providers")
 async def outliers_providers(org_id: int = Query(...), period: str = Query(...)):
+    # If claims are available, compute outliers; otherwise return demo
+    try:
+        df = CLAIMS_BY_ORG.get(org_id)
+        if df is not None and not df.empty:
+            agent = ProviderOutlierAgent()
+            rows = agent.run(df[[c for c in df.columns if c in {"provider_id", "claim_amount"}]].dropna())
+            providers = [
+                {
+                    "provider_id": r.provider_id,
+                    "provider_name": f"Provider {r.provider_id}",
+                    "score": r.score,
+                    **r.details,
+                }
+                for r in rows
+            ]
+            providers = sorted(providers, key=lambda x: x["score"], reverse=True)[:25]
+            return {"org_id": org_id, "period": period, "providers": providers}
+    except Exception:
+        pass
     providers = [
         {"provider_id": 101, "provider_name": "Provider A", "score": 74.2, "z_total_amount": 2.3, "z_avg_amount": 1.7, "z_n_claims": 2.9},
         {"provider_id": 102, "provider_name": "Provider B", "score": 63.5, "z_total_amount": 1.9, "z_avg_amount": 1.2, "z_n_claims": 2.1},
