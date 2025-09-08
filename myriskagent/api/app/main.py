@@ -21,6 +21,7 @@ from .agents.news import NewsAgent
 from .agents.filings import FilingsAgent
 from .agents.sanctions import SanctionsAgent
 from .search.keyword import bm25_score
+from .telemetry import init_tracing, get_tracer
 
 # Prometheus
 from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
@@ -29,6 +30,7 @@ from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
 import io
 import pandas as pd
 import numpy as np
+import asyncio
 
 
 app = FastAPI(title="MyRiskAgent API", version="0.1.0")
@@ -81,39 +83,75 @@ def get_engine(settings: Settings = Depends(get_settings)):
     return engine
 
 
+async def _scheduler_loop():
+    while True:
+        try:
+            # Fetch recent news for default org context and upsert
+            agent = NewsAgent(api_key=get_settings().newsapi_key)
+            res = await agent.search("ACME")
+            if VECTOR_STORE is not None:
+                docs = [
+                    DocumentUpsert(id=None, org_id=1, title=it.get("text"), url=it.get("id"), content=it.get("text", ""))
+                    for it in res.embeds
+                ]
+                if docs:
+                    VECTOR_STORE.upsert_documents(docs)
+                    # mirror to in-memory DOCS for keyword search
+                    for it in res.embeds:
+                        DOCS.append({
+                            "id": len(DOCS) + 1,
+                            "org_id": 1,
+                            "title": it.get("text"),
+                            "url": it.get("id"),
+                            "content": it.get("text", ""),
+                        })
+        except Exception:
+            # Best-effort scheduler; ignore errors
+            pass
+        # Sleep for 1 hour
+        await asyncio.sleep(3600)
+
+
 @app.on_event("startup")
 async def startup_event():
     global NARRATOR, EVIDENCE, VECTOR_STORE, DOCS
     settings = get_settings()
+
+    # Initialize tracing if configured
+    init_tracing("myriskagent-api", settings.otel_exporter_otlp_endpoint)
+    tracer = get_tracer("startup")
+
     engine = create_engine(settings.sqlalchemy_database_uri, echo=False)
     SQLModel.metadata.create_all(engine)
 
-    # Configure vector store backend
-    if settings.vector_backend == "pgvector":
-        # Ensure extension exists
-        with engine.begin() as conn:
-            try:
-                conn.exec_driver_sql("CREATE EXTENSION IF NOT EXISTS vector;")
-            except Exception:
-                pass
-        VECTOR_STORE = PgVectorStore(settings.sqlalchemy_database_uri)
-    else:
-        VECTOR_STORE = InMemoryVectorStore()
+    with tracer.start_as_current_span("configure_vector_store"):
+        # Configure vector store backend
+        if settings.vector_backend == "pgvector":
+            with engine.begin() as conn:
+                try:
+                    conn.exec_driver_sql("CREATE EXTENSION IF NOT EXISTS vector;")
+                except Exception:
+                    pass
+            VECTOR_STORE = PgVectorStore(settings.sqlalchemy_database_uri)
+        else:
+            VECTOR_STORE = InMemoryVectorStore()
 
-    # Seed demo documents
-    seed_docs = [
-        {"id": 1, "org_id": 1, "title": "ACME Q4 Results", "url": "https://example.com/acme-q4", "content": "ACME reported steady margins and lower debt."},
-        {"id": 2, "org_id": 1, "title": "ACME Litigation Update", "url": "https://example.com/acme-litigation", "content": "A minor litigation was settled with no material impact."},
-    ]
-    DOCS = seed_docs.copy()
-    if VECTOR_STORE is not None:
-        VECTOR_STORE.upsert_documents([
-            DocumentUpsert(id=None, org_id=d["org_id"], title=d["title"], url=d["url"], content=d["content"]) for d in seed_docs
-        ])
+    with tracer.start_as_current_span("seed_documents"):
+        seed_docs = [
+            {"id": 1, "org_id": 1, "title": "ACME Q4 Results", "url": "https://example.com/acme-q4", "content": "ACME reported steady margins and lower debt."},
+            {"id": 2, "org_id": 1, "title": "ACME Litigation Update", "url": "https://example.com/acme-litigation", "content": "A minor litigation was settled with no material impact."},
+        ]
+        DOCS = seed_docs.copy()
+        if VECTOR_STORE is not None:
+            VECTOR_STORE.upsert_documents([
+                DocumentUpsert(id=None, org_id=d["org_id"], title=d["title"], url=d["url"], content=d["content"]) for d in seed_docs
+            ])
 
     # Agents
     NARRATOR = NarratorAgent(openai_api_key=settings.openai_api_key)
     EVIDENCE = EvidenceAgent(store=ObjectStore(base_uri=settings.object_store_uri))
+
+    asyncio.create_task(_scheduler_loop())
 
 
 @app.get("/metrics")
@@ -179,13 +217,15 @@ async def ingest_external(req: IngestExternalRequest):
 
 @app.post("/risk/recompute/{org_id}/{period}")
 async def risk_recompute(org_id: int, period: str):
-    # Demo feature frame: 200 rows, 6 features with light trends/noise
-    rng = np.random.default_rng(42)
-    base = rng.normal(0, 1, size=(200, 6))
-    trend = np.linspace(0, 0.5, 200).reshape(-1, 1)
-    features = pd.DataFrame(base + trend, columns=[f"f{i}" for i in range(6)])
-    fam = compute_family_scores(features)
-    combined_score, combined_conf = combine_scores(fam)
+    tracer = get_tracer("risk")
+    with tracer.start_as_current_span("build_features"):
+        rng = np.random.default_rng(42)
+        base = rng.normal(0, 1, size=(200, 6))
+        trend = np.linspace(0, 0.5, 200).reshape(-1, 1)
+        features = pd.DataFrame(base + trend, columns=[f"f{i}" for i in range(6)])
+    with tracer.start_as_current_span("compute_scores"):
+        fam = compute_family_scores(features)
+        combined_score, combined_conf = combine_scores(fam)
     scores = {
         "Financial Health Risk": {"score": float(fam["Financial Health Risk"][0]), "confidence": float(fam["Financial Health Risk"][1])},
         "Compliance and Reputation Risk": {"score": float(fam["Compliance and Reputation Risk"][0]), "confidence": float(fam["Compliance and Reputation Risk"][1])},
@@ -366,16 +406,18 @@ class AgentFetchRequest(BaseModel):
 
 @app.post("/agents/news")
 async def agents_news(req: AgentFetchRequest):
+    tracer = get_tracer("agents.news")
     if VECTOR_STORE is None:
         raise HTTPException(status_code=500, detail="Vector store not initialized")
     agent = NewsAgent(api_key=get_settings().newsapi_key)
     q = req.query or req.org or ""
-    res = await agent.search(q)
+    with tracer.start_as_current_span("fetch_news"):
+        res = await agent.search(q)
     docs = []
     for it in res.embeds:
         docs.append(DocumentUpsert(id=None, org_id=1, title=it.get("text"), url=it.get("id"), content=it.get("text", "")))
-    count = VECTOR_STORE.upsert_documents(docs)
-    # add to in-memory DOCS
+    with tracer.start_as_current_span("upsert_docs"):
+        count = VECTOR_STORE.upsert_documents(docs)
     for it in res.embeds:
         DOCS.append({"id": len(DOCS) + 1, "org_id": 1, "title": it.get("text"), "url": it.get("id"), "content": it.get("text", "")})
     return {"fetched": len(res.items), "upserted": count}
