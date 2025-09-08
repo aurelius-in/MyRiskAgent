@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Typography, Paper, Table, TableHead, TableRow, TableCell, TableBody, TableSortLabel, TextField, Button, Autocomplete } from '@mui/material'
+import { Box, Typography, Paper, Table, TableHead, TableRow, TableCell, TableBody, TableSortLabel, TextField, Button, Autocomplete, Snackbar, Alert } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { apiGet } from '../lib/api'
 import { useOrg } from '../context/OrgContext'
@@ -66,6 +66,7 @@ const Providers: React.FC = () => {
 
   const [detailOpen, setDetailOpen] = React.useState(false)
   const [detail, setDetail] = React.useState<any>(null)
+  const [toast, setToast] = React.useState<{ open: boolean; msg: string }>({ open: false, msg: '' })
   const openDetail = async (providerId: number) => {
     const d = await apiGet(`/api/providers/${providerId}/detail?org_id=${orgId}`)
     setDetail(d)
@@ -74,6 +75,19 @@ const Providers: React.FC = () => {
 
   const exportCsv = () => {
     exportToCsv(`providers_${orgId}.csv`, rows as any)
+  }
+
+  const copyCsv = async () => {
+    const header = ['provider_id','total_amount','avg_amount','n_claims','industry','region']
+    const lines = [header.join(',')]
+    rows.forEach(r => lines.push(`${r.provider_id},${r.total_amount},${r.avg_amount},${r.n_claims},${r.industry || ''},${r.region || ''}`))
+    const csv = lines.join('\n') + '\n'
+    try {
+      await navigator.clipboard.writeText(csv)
+      setToast({ open: true, msg: 'Table copied' })
+    } catch {
+      setToast({ open: true, msg: 'Copy failed' })
+    }
   }
 
   const downloadServerCsv = async () => {
@@ -111,6 +125,7 @@ const Providers: React.FC = () => {
         <Button variant="outlined" onClick={exportCsv} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Export CSV (client)</Button>
         <Button variant="outlined" onClick={downloadServerCsv} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Download CSV (API)</Button>
         <Button variant="outlined" onClick={clearFilters} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Clear</Button>
+        <Button variant="outlined" onClick={copyCsv} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Copy CSV</Button>
       </Box>
       <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700' }}>
         {isLoading && <SkeletonBlock height={160} />}
@@ -152,6 +167,9 @@ const Providers: React.FC = () => {
         )}
       </Paper>
       <ProviderDetailDialog open={detailOpen} onClose={() => setDetailOpen(false)} detail={detail || undefined} />
+      <Snackbar open={toast.open} autoHideDuration={2000} onClose={() => setToast({ ...toast, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert severity="success" sx={{ bgcolor: '#111', color: '#F1A501', border: '1px solid #B30700' }}>{toast.msg}</Alert>
+      </Snackbar>
     </Box>
   )
 }
