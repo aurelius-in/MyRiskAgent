@@ -40,6 +40,13 @@ const Footer: React.FC = () => {
 const App: React.FC = () => {
   const [tab, setTab] = React.useState(0)
   const isFetchingAny = useIsFetching() > 0
+  const { data: health } = useQuery({
+    queryKey: ['healthz'],
+    queryFn: async () => {
+      try { const r = await fetch('/api/healthz'); if (!r.ok) return { status: 'down' }; return r.json() } catch { return { status: 'down' } }
+    },
+    refetchInterval: 30000,
+  })
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -57,7 +64,7 @@ const App: React.FC = () => {
                 <span style={{ color: '#B30700', margin: '0 6px' }}>Risk</span>
                 <span style={{ fontFamily: 'Arial, sans-serif' }}>Agent</span>
               </Typography>
-              <Chip size="small" label="OK" sx={{ bgcolor: '#111', border: '1px solid #0a0', color: '#0f0', mr: 1 }} />
+              <Chip size="small" label={health?.status === 'ok' ? 'OK' : 'DOWN'} sx={{ bgcolor: '#111', border: `1px solid ${health?.status === 'ok' ? '#0a0' : '#a00'}`, color: health?.status === 'ok' ? '#0f0' : '#f00', mr: 1 }} />
               <OrgSelector />
               <Tabs
                 value={tab}
