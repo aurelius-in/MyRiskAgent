@@ -22,6 +22,7 @@ from .agents.filings import FilingsAgent
 from .agents.sanctions import SanctionsAgent
 from .search.keyword import bm25_score
 from .telemetry import init_tracing, get_tracer
+from .risk.explain import explain_scores
 
 # Prometheus
 from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
@@ -237,13 +238,19 @@ async def risk_recompute(org_id: int, period: str):
 
 @app.get("/risk/drivers/{org_id}/{period}")
 async def risk_drivers(org_id: int, period: str):
-    drivers = [
-        {"name": "Margins", "value": 5.0},
-        {"name": "Legal Mentions", "value": 3.0},
-        {"name": "Supply Delays", "value": -2.0},
-        {"name": "Online Buzz", "value": 1.0},
-    ]
-    return {"org_id": org_id, "period": period, "drivers": drivers}
+    # Build synthetic feature frame (same shape as recompute)
+    rng = np.random.default_rng(7)
+    base = rng.normal(0, 1, size=(200, 6))
+    trend = np.linspace(0, 0.3, 200).reshape(-1, 1)
+    features = pd.DataFrame(base + trend, columns=[f"f{i}" for i in range(6)])
+    exp = explain_scores(features)
+    drivers_map = exp.get("drivers", {}) if isinstance(exp, dict) else {}
+    # Convert to list[{name, value}] sorted desc by magnitude
+    items = sorted(
+        [{"name": k, "value": float(v)} for k, v in drivers_map.items()], key=lambda x: abs(x["value"]), reverse=True
+    )[:10]
+    rationales = exp.get("rationales", []) if isinstance(exp, dict) else []
+    return {"org_id": org_id, "period": period, "drivers": items, "rationales": rationales}
 
 
 @app.get("/scores/{org_id}/{period}")
