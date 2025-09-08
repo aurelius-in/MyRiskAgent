@@ -28,7 +28,7 @@ from .agents.social import SocialAgent
 from .models import ProviderAggregate as DBAgg, ProviderOutlier as DBOut
 
 # Prometheus
-from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
 # Data
 import io
@@ -55,6 +55,7 @@ VECTOR_STORE: InMemoryVectorStore | PgVectorStore | None = None
 
 # Basic request counter
 REQUEST_COUNTER = Counter("mra_requests_total", "Total HTTP requests", ["path", "method", "status"])
+REQUEST_LATENCY = Histogram("mra_request_latency_seconds", "Request latency in seconds", ["path", "method"])
 
 # Agents configured at startup
 NARRATOR: Optional[NarratorAgent] = None
@@ -75,9 +76,12 @@ async def version():
 
 @app.middleware("http")
 async def metrics_middleware(request: Request, call_next):
+    start = asyncio.get_event_loop().time()
     response: Response = await call_next(request)
     try:
         REQUEST_COUNTER.labels(path=request.url.path, method=request.method, status=str(response.status_code)).inc()
+        elapsed = max(asyncio.get_event_loop().time() - start, 0.0)
+        REQUEST_LATENCY.labels(path=request.url.path, method=request.method).observe(elapsed)
     except Exception:
         pass
     return response

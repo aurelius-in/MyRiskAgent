@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Typography, Paper, Table, TableHead, TableRow, TableCell, TableBody, TableSortLabel, TextField, Button } from '@mui/material'
+import { Box, Typography, Paper, Table, TableHead, TableRow, TableCell, TableBody, TableSortLabel, TextField, Button, Autocomplete } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { apiGet } from '../lib/api'
 import { useOrg } from '../context/OrgContext'
@@ -34,6 +34,8 @@ const Providers: React.FC = () => {
   const [order, setOrder] = React.useState<Order>('desc')
   const [industry, setIndustry] = React.useState('')
   const [region, setRegion] = React.useState('')
+  const industryOptions = React.useMemo(() => Array.from(new Set((data?.providers || []).map(p => p.industry).filter(Boolean))) as string[], [data])
+  const regionOptions = React.useMemo(() => Array.from(new Set((data?.providers || [].map(p => p.region)).filter(Boolean))) as string[], [data])
 
   const handleSort = (key: keyof ProviderRow) => {
     if (orderBy === key) {
@@ -88,9 +90,21 @@ const Providers: React.FC = () => {
   return (
     <Box>
       <Typography variant="h4" gutterBottom>Providers</Typography>
-      <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
-        <TextField size="small" placeholder="Industry" value={industry} onChange={e => setIndustry(e.target.value)} sx={{ input: { color: '#F1A501' } }} />
-        <TextField size="small" placeholder="Region" value={region} onChange={e => setRegion(e.target.value)} sx={{ input: { color: '#F1A501' } }} />
+      <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+        <Autocomplete
+          options={industryOptions}
+          value={industry || null}
+          onChange={(_, v) => setIndustry(v || '')}
+          renderInput={(params) => <TextField {...params} size="small" placeholder="Industry" />}
+          sx={{ minWidth: 220 }}
+        />
+        <Autocomplete
+          options={regionOptions}
+          value={region || null}
+          onChange={(_, v) => setRegion(v || '')}
+          renderInput={(params) => <TextField {...params} size="small" placeholder="Region" />}
+          sx={{ minWidth: 180 }}
+        />
         <Button variant="outlined" onClick={exportCsv} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Export CSV (client)</Button>
         <Button variant="outlined" onClick={downloadServerCsv} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Download CSV (API)</Button>
       </Box>
