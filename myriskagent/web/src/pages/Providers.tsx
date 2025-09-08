@@ -32,9 +32,9 @@ const Providers: React.FC = () => {
 
   const [orderBy, setOrderBy] = React.useState<keyof ProviderRow>('total_amount')
   const [order, setOrder] = React.useState<Order>('desc')
-  const [industry, setIndustry] = React.useState('')
-  const [region, setRegion] = React.useState('')
-  const [query, setQuery] = React.useState('')
+  const [industry, setIndustry] = React.useState<string>(() => { try { return localStorage.getItem('mra_prov_industry') || '' } catch { return '' } })
+  const [region, setRegion] = React.useState<string>(() => { try { return localStorage.getItem('mra_prov_region') || '' } catch { return '' } })
+  const [query, setQuery] = React.useState<string>(() => { try { return localStorage.getItem('mra_prov_query') || '' } catch { return '' } })
   const industryOptions = React.useMemo(() => Array.from(new Set((data?.providers || []).map(p => p.industry).filter(Boolean))) as string[], [data])
   const regionOptions = React.useMemo(() => Array.from(new Set((data?.providers || []).map(p => p.region).filter(Boolean))) as string[], [data])
 
@@ -109,6 +109,14 @@ const Providers: React.FC = () => {
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
   }
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('mra_prov_industry', industry)
+      localStorage.setItem('mra_prov_region', region)
+      localStorage.setItem('mra_prov_query', query)
+    } catch {}
+  }, [industry, region, query])
 
   return (
     <Box>

@@ -627,7 +627,28 @@ async def ask(req: AskRequest):
 async def report_executive(org_id: int, period: str):
     if NARRATOR is None:
         raise HTTPException(status_code=500, detail="Narrator not initialized")
-    rep = await NARRATOR.build_reports({"org_id": org_id, "period": period})
+    # Gather context: scores, drivers, top docs
+    try:
+        prof = await risk_recompute(org_id, period)
+    except Exception:
+        prof = {"scores": {}}
+    try:
+        drv = await risk_drivers(org_id, period)
+    except Exception:
+        drv = {"drivers": [], "rationales": []}
+    top_docs = []
+    try:
+        if VECTOR_STORE is not None:
+            top_docs = VECTOR_STORE.search("executive summary", org_id=org_id, k=5)
+    except Exception:
+        top_docs = []
+    rep = await NARRATOR.build_reports({
+        "org_id": org_id,
+        "period": period,
+        "scores": prof.get("scores", {}),
+        "drivers": drv,
+        "top_docs": top_docs,
+    })
     return {"html": rep.html, "summary": rep.summary}
 
 
@@ -635,7 +656,29 @@ async def report_executive(org_id: int, period: str):
 async def report_full(org_id: int, period: str):
     if NARRATOR is None:
         raise HTTPException(status_code=500, detail="Narrator not initialized")
-    rep = await NARRATOR.build_reports({"org_id": org_id, "period": period, "mode": "full"})
+    # Gather context: scores, drivers, top docs
+    try:
+        prof = await risk_recompute(org_id, period)
+    except Exception:
+        prof = {"scores": {}}
+    try:
+        drv = await risk_drivers(org_id, period)
+    except Exception:
+        drv = {"drivers": [], "rationales": []}
+    top_docs = []
+    try:
+        if VECTOR_STORE is not None:
+            top_docs = VECTOR_STORE.search("full risk report", org_id=org_id, k=10)
+    except Exception:
+        top_docs = []
+    rep = await NARRATOR.build_reports({
+        "org_id": org_id,
+        "period": period,
+        "mode": "full",
+        "scores": prof.get("scores", {}),
+        "drivers": drv,
+        "top_docs": top_docs,
+    })
     return {"html": rep.html, "summary": rep.summary}
 
 
