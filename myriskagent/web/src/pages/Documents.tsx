@@ -1,7 +1,7 @@
 import React from 'react'
 import { Box, Typography, TextField, Button, List, ListItem, ListItemText, Paper, Grid } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
-import { apiGet } from '../lib/api'
+import { apiGet, apiPost } from '../lib/api'
 import type { DocResult } from '../lib/types'
 import SkeletonBlock from '../components/SkeletonBlock'
 
@@ -16,6 +16,11 @@ const Documents: React.FC = () => {
 
   const results = data?.results ?? []
 
+  const fetchNews = async () => {
+    await apiPost('/api/agents/news', { query: q })
+    await refetch()
+  }
+
   return (
     <Box>
       <Typography variant="h4" gutterBottom>Documents</Typography>
@@ -25,6 +30,7 @@ const Documents: React.FC = () => {
           sx={{ input: { color: '#F1A501' }, label: { color: '#F1A501' } }}
         />
         <Button variant="outlined" onClick={() => refetch()} disabled={isFetching} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Search</Button>
+        <Button variant="outlined" onClick={fetchNews} disabled={isFetching} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Fetch Recent News</Button>
       </Box>
       <Grid container spacing={2}>
         <Grid item xs={12} md={5}>

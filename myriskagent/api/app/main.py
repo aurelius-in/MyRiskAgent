@@ -15,6 +15,8 @@ from .agents.narrator import NarratorAgent
 from .agents.evidence import EvidenceAgent
 from .storage.io import ObjectStore
 from .risk.engine import compute_family_scores, combine_scores  # NEW: use engine
+from .agents.news import NewsAgent
+from .agents.filings import FilingsAgent
 
 # Prometheus
 from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
@@ -250,3 +252,36 @@ async def get_evidence(entity: str, id: str, period: str):
         "README.txt": f"Evidence for {entity}:{id} {period}".encode("utf-8"),
     }).uri
     return {"entity": entity, "id": id, "period": period, "uri": uri}
+
+
+class AgentFetchRequest(BaseModel):
+    query: Optional[str] = None
+    ticker: Optional[str] = None
+    org: Optional[str] = None
+
+@app.post("/agents/news")
+async def agents_news(req: AgentFetchRequest):
+    if VECTOR_STORE is None:
+        raise HTTPException(status_code=500, detail="Vector store not initialized")
+    agent = NewsAgent(api_key=get_settings().newsapi_key)
+    q = req.query or req.org or ""
+    res = await agent.search(q)
+    docs = []
+    for it in res.embeds:
+        docs.append(DocumentUpsert(id=None, org_id=1, title=it.get("text"), url=it.get("id"), content=it.get("text", "")))
+    count = VECTOR_STORE.upsert_documents(docs)
+    return {"fetched": len(res.items), "upserted": count}
+
+@app.post("/agents/filings")
+async def agents_filings(req: AgentFetchRequest):
+    if VECTOR_STORE is None:
+        raise HTTPException(status_code=500, detail="Vector store not initialized")
+    if not req.ticker and not req.org:
+        raise HTTPException(status_code=400, detail="ticker or org required")
+    agent = FilingsAgent()
+    res = await agent.fetch(org=req.org or req.ticker or "", ticker=req.ticker)
+    docs = []
+    for it in res.embeds:
+        docs.append(DocumentUpsert(id=None, org_id=1, title=it.get("text"), url=it.get("id"), content=it.get("text", "")))
+    count = VECTOR_STORE.upsert_documents(docs)
+    return {"upserted": count, "snippets": len(res.snippets)}
