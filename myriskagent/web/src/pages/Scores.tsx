@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Typography, List, ListItem, ListItemText, Paper, Divider, Button, Slider, TextField } from '@mui/material'
+import { Box, Typography, List, ListItem, ListItemText, Paper, Divider, Button, Slider, TextField, Snackbar, Alert } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { apiGet } from '../lib/api'
 import SkeletonBlock from '../components/SkeletonBlock'
@@ -37,8 +37,14 @@ const Scores: React.FC = () => {
     if (!file) return
     const form = new FormData()
     form.append('file', file)
-    await fetch(`/api/ingest/claims?org_id=${orgId}`, { method: 'POST', body: form })
-    await Promise.all([refetch(), outliers.refetch()])
+    try {
+      const resp = await fetch(`/api/ingest/claims?org_id=${orgId}`, { method: 'POST', body: form })
+      if (!resp.ok) throw new Error('upload failed')
+      await Promise.all([refetch(), outliers.refetch()])
+      setToast({ open: true, kind: 'success', msg: 'Claims uploaded' })
+    } catch {
+      setToast({ open: true, kind: 'error', msg: 'Upload failed' })
+    }
     e.target.value = ''
   }
 
@@ -46,6 +52,7 @@ const Scores: React.FC = () => {
 
   const [detailOpen, setDetailOpen] = React.useState(false)
   const [detail, setDetail] = React.useState<any>(null)
+  const [toast, setToast] = React.useState<{ open: boolean; kind: 'success' | 'error'; msg: string }>({ open: false, kind: 'success', msg: '' })
   const openDetail = async (providerId: number) => {
     const d = await apiGet(`/api/providers/${providerId}/detail?org_id=${orgId}`)
     setDetail(d)
@@ -96,6 +103,9 @@ const Scores: React.FC = () => {
       </Paper>
 
       <ProviderDetailDialog open={detailOpen} onClose={() => setDetailOpen(false)} detail={detail || undefined} />
+      <Snackbar open={toast.open} autoHideDuration={2000} onClose={() => setToast({ ...toast, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert severity={toast.kind} sx={{ bgcolor: '#111', color: '#F1A501', border: '1px solid #B30700' }}>{toast.msg}</Alert>
+      </Snackbar>
     </Box>
   )
 }

@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Button, Stack, Typography } from '@mui/material'
+import { Box, Button, Stack, Typography, Snackbar, Alert } from '@mui/material'
 import type { DocResult } from '../lib/types'
 
 interface Props {
@@ -7,6 +7,7 @@ interface Props {
 }
 
 const DocumentViewer: React.FC<Props> = ({ doc }) => {
+  const [copiedOpen, setCopiedOpen] = React.useState(false)
   if (!doc) {
     return <div style={{ color: '#F1A501' }}>Select a document to preview.</div>
   }
@@ -19,6 +20,7 @@ const DocumentViewer: React.FC<Props> = ({ doc }) => {
     if (!doc.url) return
     try {
       await navigator.clipboard.writeText(doc.url)
+      setCopiedOpen(true)
     } catch {}
   }
 
@@ -36,6 +38,9 @@ const DocumentViewer: React.FC<Props> = ({ doc }) => {
       ) : (
         <div style={{ color: '#F1A501', whiteSpace: 'pre-wrap' }}>{doc.snippet || 'No preview available.'}</div>
       )}
+      <Snackbar open={copiedOpen} autoHideDuration={2000} onClose={() => setCopiedOpen(false)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert severity="success" sx={{ bgcolor: '#111', color: '#F1A501', border: '1px solid #B30700' }}>Link copied</Alert>
+      </Snackbar>
     </Box>
   )
 }
