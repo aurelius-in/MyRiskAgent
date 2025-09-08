@@ -24,3 +24,4 @@ tenacity
 httpx
 prometheus-client
 pyarrow
+reportlab
