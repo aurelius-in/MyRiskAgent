@@ -460,6 +460,25 @@ async def list_providers(org_id: int = Query(...)):
 
 @app.get("/providers/export")
 async def export_providers_csv(org_id: int = Query(...)):
+    # Prefer DB export if available
+    try:
+        engine = create_engine(get_settings().sqlalchemy_database_uri, echo=False)
+        with Session(engine) as s:
+            rows = s.exec(select(DBAgg).where(DBAgg.org_id == org_id)).all()
+            if rows:
+                headers = ["provider_id", "total_amount", "avg_amount", "n_claims", "industry", "region"]
+                lines = [",".join(headers)]
+                for r in rows:
+                    lines.append(
+                        f"{r.provider_id},{r.total_amount},{r.avg_amount},{r.n_claims},{(r.industry or '')},{(r.region or '')}"
+                    )
+                csv_bytes = ("\n".join(lines) + "\n").encode("utf-8")
+                headers_out = {"Content-Disposition": f"attachment; filename=providers_{org_id}.csv"}
+                return StreamingResponse(_io_for_pdf.BytesIO(csv_bytes), media_type="text/csv", headers=headers_out)
+    except Exception:
+        pass
+
+    # Fallback to in-memory aggregation
     df = CLAIMS_BY_ORG.get(org_id)
     if df is None or df.empty:
         csv_bytes = b"provider_id,total_amount,avg_amount,n_claims\n"

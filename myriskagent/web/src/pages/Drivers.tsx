@@ -5,6 +5,8 @@ import { apiGet } from '../lib/api'
 import RiskWaterfall, { WaterfallItem } from '../components/RiskWaterfall'
 import SkeletonBlock from '../components/SkeletonBlock'
 import { useOrg } from '../context/OrgContext'
+import ErrorState from '../components/ErrorState'
+import EmptyState from '../components/EmptyState'
 
 interface DriversResp { drivers: { name: string; value: number }[]; rationales?: string[] }
 
@@ -24,8 +26,9 @@ const Drivers: React.FC = () => {
       <Typography variant="h4" gutterBottom>Drivers</Typography>
       <Paper sx={{ p: 2, bgcolor: '#111', border: '1px solid #B30700', mb: 2 }}>
         {isLoading && <SkeletonBlock height={200} />}
-        {isError && <div style={{ color: '#B30700' }}>Failed to load drivers.</div>}
-        {!isLoading && !isError && <RiskWaterfall items={items} />}
+        {isError && <ErrorState message="Failed to load drivers." />}
+        {!isLoading && !isError && items.length === 0 && <EmptyState message="No driver data available." />}
+        {!isLoading && !isError && items.length > 0 && <RiskWaterfall items={items} />}
       </Paper>
       {!!rationales.length && (
         <Paper sx={{ p: 2, bgcolor: '#111', border: '1px solid #B30700' }}>
