@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Typography, List, ListItem, ListItemText, Paper, Divider, Button, Slider } from '@mui/material'
+import { Box, Typography, List, ListItem, ListItemText, Paper, Divider, Button, Slider, TextField } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { apiGet } from '../lib/api'
 import SkeletonBlock from '../components/SkeletonBlock'
@@ -16,9 +16,12 @@ const Scores: React.FC = () => {
     queryFn: async () => apiGet<ScoresListResp>(`/api/scores/${orgId}/latest`),
   })
 
+  const [industry, setIndustry] = React.useState('')
+  const [region, setRegion] = React.useState('')
+
   const outliers = useQuery({
-    queryKey: ['outliers', orgId, 'latest'],
-    queryFn: async () => apiGet<OutliersResp>(`/api/outliers/providers?org_id=${orgId}&period=latest`),
+    queryKey: ['outliers', orgId, 'latest', industry, region],
+    queryFn: async () => apiGet<OutliersResp>(`/api/outliers/providers?org_id=${orgId}&period=latest${industry ? `&industry=${encodeURIComponent(industry)}` : ''}${region ? `&region=${encodeURIComponent(region)}` : ''}`),
   })
 
   const exportOutliers = () => {
@@ -69,9 +72,11 @@ const Scores: React.FC = () => {
         )}
       </Paper>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, gap: 1, flexWrap: 'wrap' }}>
         <Typography variant="h5" gutterBottom>Provider Outliers</Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+          <TextField size="small" placeholder="Industry" value={industry} onChange={e => setIndustry(e.target.value)} sx={{ input: { color: '#F1A501' } }} />
+          <TextField size="small" placeholder="Region" value={region} onChange={e => setRegion(e.target.value)} sx={{ input: { color: '#F1A501' } }} />
           <Button variant="outlined" onClick={exportOutliers} disabled={outliers.isLoading} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Export CSV</Button>
           <input ref={fileInputRef} type="file" accept=".csv,.parquet,.pq" style={{ display: 'none' }} onChange={onFileChange} />
           <Button variant="outlined" onClick={onUploadClick} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Upload Claims</Button>
