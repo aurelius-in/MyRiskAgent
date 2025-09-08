@@ -7,6 +7,7 @@ import OutliersTable from '../components/OutliersTable'
 import type { ScoresListResp, OutliersResp } from '../lib/types'
 import { exportToCsv } from '../lib/csv'
 import { useOrg } from '../context/OrgContext'
+import ProviderDetailDialog from '../components/ProviderDetailDialog'
 
 const Scores: React.FC = () => {
   const { orgId } = useOrg()
@@ -34,6 +35,14 @@ const Scores: React.FC = () => {
     await fetch(`/api/ingest/claims?org_id=${orgId}`, { method: 'POST', body: form })
     await Promise.all([refetch(), outliers.refetch()])
     e.target.value = ''
+  }
+
+  const [detailOpen, setDetailOpen] = React.useState(false)
+  const [detail, setDetail] = React.useState<any>(null)
+  const openDetail = async (providerId: number) => {
+    const d = await apiGet(`/api/providers/${providerId}/detail?org_id=${orgId}`)
+    setDetail(d)
+    setDetailOpen(true)
   }
 
   return (
@@ -67,8 +76,10 @@ const Scores: React.FC = () => {
       <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700' }}>
         {outliers.isLoading && <SkeletonBlock height={160} />}
         {outliers.isError && <div style={{ color: '#B30700', padding: 8 }}>Failed to load outliers.</div>}
-        {!outliers.isLoading && !outliers.isError && <OutliersTable rows={outliers.data?.providers || []} />}
+        {!outliers.isLoading && !outliers.isError && <OutliersTable rows={outliers.data?.providers || []} onSelect={openDetail} />}
       </Paper>
+
+      <ProviderDetailDialog open={detailOpen} onClose={() => setDetailOpen(false)} detail={detail || undefined} />
     </Box>
   )
 }
