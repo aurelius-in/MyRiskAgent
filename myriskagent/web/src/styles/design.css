@@ -19,6 +19,12 @@ h1, h2, h3, h4, h5, h6 {
 
 a { color: var(--mra-yellow); }
 
+mark {
+  background: rgba(179, 7, 0, 0.35);
+  color: var(--mra-yellow);
+  padding: 0 2px;
+}
+
 @keyframes mra-skeleton {
   0% { background-position: 100% 50%; }
   100% { background-position: 0 50%; }

@@ -199,9 +199,12 @@ async def metrics():
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
+_START_TIME = datetime.utcnow()
+
 @app.get("/healthz")
 async def healthz():
-    return {"status": "ok", "time": datetime.utcnow().isoformat()}
+    uptime = (datetime.utcnow() - _START_TIME).total_seconds()
+    return {"status": "ok", "time": datetime.utcnow().isoformat(), "uptime_s": uptime}
 
 
 class IngestExternalRequest(BaseModel):
