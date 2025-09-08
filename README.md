@@ -1,7 +1,3 @@
-Awesome. Here’s an **updated README.md** you can drop in now. It keeps everything strong from the last version and adds what you asked for: multi-source online intelligence, risk-score families, “Ask MyRiskAgent,” agent roster, design system (fonts/colors), and options for orgs to upload their own data.
-
----
-
 # MyRiskAgent
 
 **Agentic risk analysis platform** that ingests claims, filings, finance data, news, and OSINT to compute provider and company risk with peer-normalized outlier detection and evidence-rich explanations. Built for production workloads on FastAPI, Postgres/pgvector, DuckDB, Redis, and LangGraph-style orchestration. GPT-5 summarizes findings into executive briefs and full reports with citations.
