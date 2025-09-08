@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MyRiskAgent</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Special+Elite&display=swap" rel="stylesheet">
+    <link rel="icon" href="/assets/mra-banner-sm.png" />
+    <style>
+      html, body { height: 100%; margin: 0; background: #000; }
+      #splash { position: fixed; inset: 0; background: #000; display: flex; align-items: center; justify-content: center; }
+      #splash img { width: 200px; height: 200px; object-fit: contain; }
+    </style>
+  </head>
+  <body>
+    <div id="splash">
+      <img src="/assets/mra-logo.gif" alt="MyRiskAgent" />
+    </div>
+    <div id="root" style="display:none"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      setTimeout(() => {
+        document.getElementById('splash').style.display = 'none';
+        const root = document.getElementById('root');
+        if (root) root.style.display = 'block';
+      }, 5000);
+    </script>
+  </body>
+</html>
