@@ -256,13 +256,27 @@ async def get_scores(org_id: int, period: str):
 
 
 @app.get("/outliers/providers")
-async def outliers_providers(org_id: int = Query(...), period: str = Query(...)):
+async def outliers_providers(
+    org_id: int = Query(...),
+    period: str = Query(...),
+    industry: Optional[str] = Query(None),
+    region: Optional[str] = Query(None),
+):
     # If claims are available, compute outliers; otherwise return demo
     try:
         df = CLAIMS_BY_ORG.get(org_id)
         if df is not None and not df.empty:
+            filt_df = df
+            if industry is not None and "industry" in filt_df.columns:
+                filt_df = filt_df[filt_df["industry"].astype(str) == str(industry)]
+            if region is not None and "region" in filt_df.columns:
+                filt_df = filt_df[filt_df["region"].astype(str) == str(region)]
+            if filt_df.empty:
+                return {"org_id": org_id, "period": period, "providers": []}
             agent = ProviderOutlierAgent()
-            rows = agent.run(df[[c for c in df.columns if c in {"provider_id", "claim_amount"}]].dropna())
+            rows = agent.run(
+                filt_df[[c for c in filt_df.columns if c in {"provider_id", "claim_amount"}]].dropna()
+            )
             providers = [
                 {
                     "provider_id": r.provider_id,
