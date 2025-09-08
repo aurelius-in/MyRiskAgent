@@ -16,10 +16,11 @@ const Documents: React.FC = () => {
   const [mode, setMode] = React.useState<'vector' | 'keyword'>('vector')
   const [selected, setSelected] = React.useState<DocResult | null>(null)
   const [domain, setDomain] = React.useState<string | null>(null)
+  const [recentLimit, setRecentLimit] = React.useState<number>(10)
 
   const recent = useQuery({
-    queryKey: ['docs-recent', orgId],
-    queryFn: async () => apiGet<{ results: DocResult[] }>(`/api/docs/recent?org_id=${orgId}&limit=10`),
+    queryKey: ['docs-recent', orgId, recentLimit],
+    queryFn: async () => apiGet<{ results: DocResult[] }>(`/api/docs/recent?org_id=${orgId}&limit=${recentLimit}`),
     staleTime: 60_000,
   })
 
@@ -76,6 +77,7 @@ const Documents: React.FC = () => {
         <Button variant="outlined" onClick={() => refetch()} disabled={isFetching} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Search</Button>
         <Button variant="outlined" onClick={fetchNews} disabled={isFetching} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Fetch Recent News</Button>
         <Button variant="outlined" onClick={fetchFilings} disabled={isFetching} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Fetch Filings</Button>
+        <Button variant="outlined" onClick={() => { setQ(''); setTicker(''); setDomain(null); setSelected(null) }} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Clear</Button>
       </Stack>
       <Grid container spacing={2}>
         <Grid item xs={12} md={5}>
@@ -99,6 +101,11 @@ const Documents: React.FC = () => {
                     <EmptyState message="No results yet." />
                   )}
                 </List>
+                {showRecent && (
+                  <Box sx={{ textAlign: 'center', pb: 1 }}>
+                    <Button size="small" onClick={() => setRecentLimit(l => l + 10)}>Load more</Button>
+                  </Box>
+                )}
               </>
             )}
           </Paper>

@@ -102,6 +102,24 @@ const Ask: React.FC = () => {
     }
   }
 
+  const copyAnswerMarkdown = async () => {
+    if (!answer) return
+    try {
+      // Convert minimal HTML to Markdown: links and line breaks
+      let md = answer
+      md = md.replace(/<a\s+href=\"([^\"]+)\"[^>]*>(.*?)<\/a>/gi, '[$2]($1)')
+      md = md.replace(/<br\s*\/?>(\n)?/gi, '\n')
+      md = md.replace(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/gi, '# $1\n')
+      md = md.replace(/<li[^>]*>(.*?)<\/li>/gi, '- $1')
+      md = md.replace(/<ul[^>]*>|<\/ul>|<ol[^>]*>|<\/ol>/gi, '')
+      md = md.replace(/<[^>]+>/g, '')
+      await navigator.clipboard.writeText(md)
+      setToast({ open: true, msg: 'Answer copied' })
+    } catch {
+      setToast({ open: true, msg: 'Copy failed' })
+    }
+  }
+
   return (
     <Box>
       <Typography variant="h4" gutterBottom>Ask</Typography>
@@ -133,7 +151,10 @@ const Ask: React.FC = () => {
           <div style={{ color: '#F1A501', marginBottom: 8 }} dangerouslySetInnerHTML={{ __html: answer }} />
           <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 1 }}>
             <SourceChips items={cites} />
-            <Button size="small" onClick={copyCitations}>Copy Citations</Button>
+            <Stack direction="row" spacing={1}>
+              <Button size="small" onClick={copyAnswerMarkdown}>Copy Answer</Button>
+              <Button size="small" onClick={copyCitations}>Copy Citations</Button>
+            </Stack>
           </Stack>
         </Paper>
       )}

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react'
+import React, { createContext, useContext, useEffect, useState } from 'react'
 
 interface OrgState {
   orgId: number
@@ -9,13 +9,24 @@ interface OrgState {
 const OrgContext = createContext<OrgState | undefined>(undefined)
 
 export const OrgProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) => {
-  const [orgId, setOrgId] = useState<number>(1)
-  const [orgName, setOrgName] = useState<string>('ACME')
+  const [orgId, setOrgId] = useState<number>(() => {
+    try { const v = localStorage.getItem('mra_org_id'); return v ? Number(v) : 1 } catch { return 1 }
+  })
+  const [orgName, setOrgName] = useState<string>(() => {
+    try { return localStorage.getItem('mra_org_name') || 'ACME' } catch { return 'ACME' }
+  })
 
   const setOrg = (id: number, name: string) => {
     setOrgId(id)
     setOrgName(name)
   }
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('mra_org_id', String(orgId))
+      localStorage.setItem('mra_org_name', orgName)
+    } catch {}
+  }, [orgId, orgName])
 
   return (
     <OrgContext.Provider value={{ orgId, orgName, setOrg }}>
