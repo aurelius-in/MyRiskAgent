@@ -5,6 +5,7 @@ from typing import Optional
 
 from fastapi import Depends, FastAPI, UploadFile, File, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import StreamingResponse
 import io as _io_for_pdf
 from pydantic import BaseModel
@@ -49,6 +50,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# GZip compression
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 
 # Simple vector store (configured at startup)
 VECTOR_STORE: InMemoryVectorStore | PgVectorStore | None = None
@@ -82,6 +86,21 @@ async def metrics_middleware(request: Request, call_next):
         REQUEST_COUNTER.labels(path=request.url.path, method=request.method, status=str(response.status_code)).inc()
         elapsed = max(asyncio.get_event_loop().time() - start, 0.0)
         REQUEST_LATENCY.labels(path=request.url.path, method=request.method).observe(elapsed)
+    except Exception:
+        pass
+    return response
+
+
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    response: Response = await call_next(request)
+    try:
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault("X-XSS-Protection", "0")
+        # Relaxed CSP to allow app and iframes; tighten in production
+        response.headers.setdefault("Content-Security-Policy", "default-src 'self' 'unsafe-inline' data: blob: https: http:;")
     except Exception:
         pass
     return response
