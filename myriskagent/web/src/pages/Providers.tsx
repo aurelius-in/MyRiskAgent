@@ -34,6 +34,7 @@ const Providers: React.FC = () => {
   const [order, setOrder] = React.useState<Order>('desc')
   const [industry, setIndustry] = React.useState('')
   const [region, setRegion] = React.useState('')
+  const [query, setQuery] = React.useState('')
   const industryOptions = React.useMemo(() => Array.from(new Set((data?.providers || []).map(p => p.industry).filter(Boolean))) as string[], [data])
   const regionOptions = React.useMemo(() => Array.from(new Set((data?.providers || []).map(p => p.region).filter(Boolean))) as string[], [data])
 
@@ -50,7 +51,12 @@ const Providers: React.FC = () => {
     const src = data?.providers || []
     const filtered = src.filter(p =>
       (industry ? String(p.industry || '').toLowerCase().includes(industry.toLowerCase()) : true) &&
-      (region ? String(p.region || '').toLowerCase().includes(region.toLowerCase()) : true)
+      (region ? String(p.region || '').toLowerCase().includes(region.toLowerCase()) : true) &&
+      (query ? (
+        String(p.provider_id).includes(query) ||
+        String(p.industry || '').toLowerCase().includes(query.toLowerCase()) ||
+        String(p.region || '').toLowerCase().includes(query.toLowerCase())
+      ) : true)
     )
     const sorted = [...filtered].sort((a, b) => {
       const aVal = a[orderBy] ?? 0
@@ -62,7 +68,7 @@ const Providers: React.FC = () => {
   }, [data, orderBy, order, industry, region])
 
   // Clear filters
-  const clearFilters = () => { setIndustry(''); setRegion('') }
+  const clearFilters = () => { setIndustry(''); setRegion(''); setQuery('') }
 
   const [detailOpen, setDetailOpen] = React.useState(false)
   const [detail, setDetail] = React.useState<any>(null)
@@ -108,6 +114,7 @@ const Providers: React.FC = () => {
     <Box>
       <Typography variant="h4" gutterBottom>Providers</Typography>
       <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+        <TextField size="small" placeholder="Search id/industry/region" value={query} onChange={e => setQuery(e.target.value)} sx={{ minWidth: 220 }} />
         <Autocomplete
           options={industryOptions}
           value={industry || null}
