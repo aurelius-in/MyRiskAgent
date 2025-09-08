@@ -41,6 +41,7 @@ Copy `.env.example` to `.env` and adjust values.
 - VECTOR_BACKEND=pgvector or chroma
 - OPENAI_API_KEY (required; embeddings and LLMs)
 - OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+- USE_OPENAI_EMBEDDINGS=true
 - OVERRIDE_HASH_EMBED=false (dev-only fallback; set true to bypass OpenAI for local testing)
 - CHROMA_PERSIST_DIR= (when VECTOR_BACKEND=chroma)
 - OBJECT_STORE_URI (e.g., file:///data)
