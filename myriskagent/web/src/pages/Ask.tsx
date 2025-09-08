@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Typography, TextField, Button, Paper, Stack, FormGroup, FormControlLabel, Checkbox } from '@mui/material'
+import { Box, Typography, TextField, Button, Paper, Stack, FormGroup, FormControlLabel, Checkbox, Snackbar, Alert } from '@mui/material'
 import EmptyState from '../components/EmptyState'
 import ErrorState from '../components/ErrorState'
 import { apiPost } from '../lib/api'
@@ -23,6 +23,7 @@ const Ask: React.FC = () => {
   const [scopeNews, setScopeNews] = React.useState(true)
   const [scopeFilings, setScopeFilings] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [toast, setToast] = React.useState<{ open: boolean; msg: string }>({ open: false, msg: '' })
 
   const ask = async () => {
     setLoading(true)
@@ -90,6 +91,17 @@ const Ask: React.FC = () => {
     URL.revokeObjectURL(url)
   }
 
+  const copyCitations = async () => {
+    if (!cites || cites.length === 0) return
+    const md = cites.map(c => `- [${c.id}](${c.url || ''}) ${c.title || ''}`.trim()).join('\n')
+    try {
+      await navigator.clipboard.writeText(md)
+      setToast({ open: true, msg: 'Citations copied' })
+    } catch {
+      setToast({ open: true, msg: 'Copy failed' })
+    }
+  }
+
   return (
     <Box>
       <Typography variant="h4" gutterBottom>Ask</Typography>
@@ -119,11 +131,17 @@ const Ask: React.FC = () => {
       {answer && (
         <Paper sx={{ p: 2, bgcolor: '#111', border: '1px solid #B30700', mb: 2 }}>
           <div style={{ color: '#F1A501', marginBottom: 8 }} dangerouslySetInnerHTML={{ __html: answer }} />
-          <SourceChips items={cites} />
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 1 }}>
+            <SourceChips items={cites} />
+            <Button size="small" onClick={copyCitations}>Copy Citations</Button>
+          </Stack>
         </Paper>
       )}
       {sanctions && <SanctionsList items={sanctions.flags || []} />}
       <HtmlDialog open={openReport} onClose={() => setOpenReport(false)} title="Report" html={reportHtml} />
+      <Snackbar open={toast.open} autoHideDuration={2000} onClose={() => setToast({ ...toast, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert severity="success" sx={{ bgcolor: '#111', color: '#F1A501', border: '1px solid #B30700' }}>{toast.msg}</Alert>
+      </Snackbar>
     </Box>
   )
 }

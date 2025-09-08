@@ -624,16 +624,26 @@ async def report_full(org_id: int, period: str):
 async def report_pdf(org_id: int, period: str):
     try:
         from reportlab.pdfgen import canvas  # type: ignore
+        from reportlab.lib.colors import black, HexColor  # type: ignore
     except Exception as e:  # pragma: no cover
         raise HTTPException(status_code=500, detail=f"PDF generation not available: {e}")
 
     buffer = _io_for_pdf.BytesIO()
     c = canvas.Canvas(buffer)
     c.setTitle(f"MyRiskAgent Report {org_id} {period}")
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(72, 800, "MyRiskAgent Report")
+    # Noir header bar
+    c.setFillColor(HexColor("#000000"))
+    c.rect(0, 800, 612, 42, fill=1, stroke=0)
+    c.setFillColor(HexColor("#F1A501"))
+    c.setFont("Helvetica-Bold", 18)
+    c.drawString(72, 812, "MyRiskAgent Report")
+    # Subheader
+    c.setFillColor(HexColor("#B30700"))
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(72, 790, f"Org: {org_id}  Period: {period}")
+    # Body
+    c.setFillColor(HexColor("#F1A501"))
     c.setFont("Helvetica", 11)
-    c.drawString(72, 780, f"Org: {org_id}  Period: {period}")
     c.drawString(72, 760, "This is a minimal PDF placeholder for the full report.")
     c.showPage()
     c.save()
