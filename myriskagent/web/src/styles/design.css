@@ -1,0 +1,20 @@
+:root {
+  --mra-red: #B30700;
+  --mra-yellow: #F1A501;
+  --mra-black: #000000;
+  --font-heading: 'Special Elite', serif;
+  --font-body: 'Century Gothic', Arial, sans-serif;
+}
+
+html, body {
+  background: var(--mra-black);
+  color: var(--mra-yellow);
+  font-family: var(--font-body);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--mra-red);
+  font-family: var(--font-heading);
+}
+
+a { color: var(--mra-yellow); }
