@@ -1,14 +1,26 @@
 from __future__ import annotations
 
 import math
+import os
 import re
 from dataclasses import dataclass
-from typing import Iterable, List, Optional, Sequence, Tuple
+from typing import Callable, Iterable, List, Optional, Sequence, Tuple
 
 from sqlalchemy import text
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import create_engine
 
-# Hashing-trick embedding to avoid heavyweight deps in MVP
+try:
+    import openai  # type: ignore
+except Exception:  # pragma: no cover
+    openai = None  # type: ignore
+
+try:
+    import chromadb  # type: ignore
+except Exception:  # pragma: no cover
+    chromadb = None  # type: ignore
+
+
+# Hashing-trick embedding fallback
 
 def _tokenize(text: str) -> List[str]:
     return re.findall(r"[A-Za-z0-9_]+", text.lower())
@@ -22,9 +34,31 @@ def hash_embed(text: str, dim: int = 1536) -> List[float]:
     for tok in tokens:
         h = hash(tok) % dim
         vec[h] += 1.0
-    # l2 normalize
     norm = math.sqrt(sum(v * v for v in vec)) or 1.0
     return [v / norm for v in vec]
+
+
+def get_embedder(dim: int = 1536) -> Callable[[str], List[float]]:
+    use_openai = os.getenv("USE_OPENAI_EMBEDDINGS", "").lower() in {"1", "true", "yes"}
+    api_key = os.getenv("OPENAI_API_KEY")
+    if use_openai and api_key and openai is not None:  # pragma: no cover (network)
+        client = openai.OpenAI(api_key=api_key)
+        model = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
+
+        def _embed(text: str) -> List[float]:
+            resp = client.embeddings.create(model=model, input=text[:8000])
+            vec = resp.data[0].embedding
+            if len(vec) > dim:
+                vec2 = vec[:dim]
+            elif len(vec) < dim:
+                vec2 = vec + [0.0] * (dim - len(vec))
+            else:
+                vec2 = vec
+            n = math.sqrt(sum(v * v for v in vec2)) or 1.0
+            return [v / n for v in vec2]
+
+        return _embed
+    return lambda t: hash_embed(t, dim)
 
 
 @dataclass
@@ -40,20 +74,19 @@ class DocumentUpsert:
 class PgVectorStore:
     def __init__(self, sqlalchemy_uri: str) -> None:
         self.engine = create_engine(sqlalchemy_uri, echo=False)
+        self.dim = 1536
+        self._embed = get_embedder(self.dim)
 
     def upsert_documents(self, docs: Sequence[DocumentUpsert]) -> int:
         if not docs:
             return 0
         inserted = 0
-        emb_dim = 1536
         with self.engine.begin() as conn:
             for d in docs:
-                emb = hash_embed(d.content, emb_dim)
+                emb = self._embed(d.content)
                 if d.url:
-                    # Try find existing by URL
                     row = conn.execute(text("select id from document where url = :url limit 1"), {"url": d.url}).first()
                     if row:
-                        # Update existing
                         conn.execute(
                             text(
                                 "update document set title=:title, content=:content, published_at=:published_at, embedding=:embedding where id=:id"
@@ -68,7 +101,6 @@ class PgVectorStore:
                         )
                         inserted += 1
                         continue
-                # Insert new
                 conn.execute(
                     text(
                         "insert into document (org_id, source_id, title, url, published_at, content, embedding, created_at) values (:org_id, NULL, :title, :url, :published_at, :content, :embedding, now())"
@@ -86,7 +118,7 @@ class PgVectorStore:
         return inserted
 
     def search(self, query: str, org_id: Optional[int], k: int = 5) -> List[dict]:
-        q_emb = hash_embed(query)
+        q_emb = self._embed(query)
         org_filter = "and org_id = :org_id" if org_id is not None else ""
         sql = text(
             f"""
@@ -123,10 +155,11 @@ class InMemoryVectorStore:
     def __init__(self) -> None:
         self.docs: List[Tuple[int, int, str, Optional[str], List[float]]] = []
         self._next_id = 1
+        self._embed = get_embedder()
 
     def upsert_documents(self, docs: Sequence[DocumentUpsert]) -> int:
         for d in docs:
-            emb = hash_embed(d.content)
+            emb = self._embed(d.content)
             did = self._next_id
             self._next_id += 1
             self.docs.append((did, d.org_id, d.title or "", d.url, emb))
@@ -140,7 +173,7 @@ class InMemoryVectorStore:
         return dot / (na * nb)
 
     def search(self, query: str, org_id: Optional[int], k: int = 5) -> List[dict]:
-        q = hash_embed(query)
+        q = self._embed(query)
         scored: List[Tuple[float, Tuple[int, int, str, Optional[str], List[float]]]] = []
         for rec in self.docs:
             if org_id is not None and rec[1] != org_id:
@@ -153,4 +186,62 @@ class InMemoryVectorStore:
         return out
 
 
-__all__ = ["hash_embed", "PgVectorStore", "InMemoryVectorStore", "DocumentUpsert"]
+class ChromaVectorStore:
+    def __init__(self, persist_dir: Optional[str] = None) -> None:
+        self._embed = get_embedder()
+        if chromadb is None:  # pragma: no cover
+            self._client = None
+            self._docs: List[Tuple[str, int, str, Optional[str], List[float]]] = []
+        else:
+            settings = chromadb.config.Settings(chroma_db_impl="duckdb+parquet", persist_directory=persist_dir) if persist_dir else None
+            self._client = chromadb.Client(settings) if settings else chromadb.Client()
+            self._coll = self._client.get_or_create_collection("documents")
+
+    def upsert_documents(self, docs: Sequence[DocumentUpsert]) -> int:
+        if chromadb is None:  # fallback in-memory
+            for d in docs:
+                doc_id = d.url or f"doc-{len(self._docs)+1}"
+                self._docs.append((doc_id, d.org_id, d.title or "", d.url, self._embed(d.content)))
+            return len(docs)
+        ids = []
+        embeddings = []
+        metadatas = []
+        documents = []
+        for d in docs:
+            ids.append(d.url or f"{d.org_id}-{len(ids)+1}")
+            embeddings.append(self._embed(d.content))
+            metadatas.append({"org_id": d.org_id, "title": d.title or ""})
+            documents.append(d.content)
+        self._coll.upsert(ids=ids, embeddings=embeddings, metadatas=metadatas, documents=documents)
+        return len(docs)
+
+    def search(self, query: str, org_id: Optional[int], k: int = 5) -> List[dict]:
+        if chromadb is None:  # fallback search
+            q = self._embed(query)
+            scored: List[Tuple[float, Tuple[str, int, str, Optional[str], List[float]]]] = []
+            for rec in self._docs:
+                if org_id is not None and rec[1] != org_id:
+                    continue
+                dot = sum(x * y for x, y in zip(q, rec[4]))
+                nq = math.sqrt(sum(x * x for x in q)) or 1.0
+                nr = math.sqrt(sum(y * y for y in rec[4])) or 1.0
+                scored.append((dot / (nq * nr), rec))
+            top = sorted(scored, key=lambda x: x[0], reverse=True)[:k]
+            out = []
+            for score, (doc_id, o, title, url, _emb) in top:
+                out.append({"id": doc_id, "org_id": o, "title": title, "url": url, "score": float(score)})
+            return out
+        res = self._coll.query(query_embeddings=[self._embed(query)], n_results=k, where={"org_id": org_id} if org_id is not None else {})
+        out: List[dict] = []
+        for i, _id in enumerate(res.get("ids", [[]])[0]):
+            out.append({
+                "id": _id,
+                "org_id": (res.get("metadatas", [[]])[0][i] or {}).get("org_id"),
+                "title": (res.get("metadatas", [[]])[0][i] or {}).get("title"),
+                "url": None,
+                "score": float(res.get("distances", [[]])[0][i]) if res.get("distances") else 0.0,
+            })
+        return out
+
+
+__all__ = ["hash_embed", "PgVectorStore", "InMemoryVectorStore", "DocumentUpsert", "get_embedder", "ChromaVectorStore"]

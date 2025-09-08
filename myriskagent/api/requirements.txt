@@ -25,3 +25,4 @@ httpx
 prometheus-client
 pyarrow
 reportlab
+alembic

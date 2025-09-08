@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from sqlmodel import SQLModel, create_engine
 
 from .config import get_settings, Settings
-from .search.vector import InMemoryVectorStore, DocumentUpsert, PgVectorStore  # updated import
+from .search.vector import InMemoryVectorStore, DocumentUpsert, PgVectorStore, ChromaVectorStore  # updated import
 from .agents.provider_outlier import ProviderOutlierAgent
 from .agents.narrator import NarratorAgent
 from .agents.evidence import EvidenceAgent
@@ -33,6 +33,7 @@ import io
 import pandas as pd
 import numpy as np
 import asyncio
+import os
 
 
 app = FastAPI(title="MyRiskAgent API", version="0.1.0")
@@ -135,6 +136,8 @@ async def startup_event():
                 except Exception:
                     pass
             VECTOR_STORE = PgVectorStore(settings.sqlalchemy_database_uri)
+        elif settings.vector_backend == "chroma":
+            VECTOR_STORE = ChromaVectorStore(persist_dir=os.getenv("CHROMA_PERSIST_DIR"))
         else:
             VECTOR_STORE = InMemoryVectorStore()
 
