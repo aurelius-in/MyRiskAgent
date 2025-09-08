@@ -1,10 +1,11 @@
 import React from 'react'
-import { Box, Typography, Paper, Table, TableHead, TableRow, TableCell, TableBody, TableSortLabel, TextField } from '@mui/material'
+import { Box, Typography, Paper, Table, TableHead, TableRow, TableCell, TableBody, TableSortLabel, TextField, Button } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { apiGet } from '../lib/api'
 import { useOrg } from '../context/OrgContext'
 import SkeletonBlock from '../components/SkeletonBlock'
 import ProviderDetailDialog from '../components/ProviderDetailDialog'
+import { exportToCsv } from '../lib/csv'
 
 interface ProviderRow {
   provider_id: number
@@ -64,12 +65,17 @@ const Providers: React.FC = () => {
     setDetailOpen(true)
   }
 
+  const exportCsv = () => {
+    exportToCsv(`providers_${orgId}.csv`, rows as any)
+  }
+
   return (
     <Box>
       <Typography variant="h4" gutterBottom>Providers</Typography>
-      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+      <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
         <TextField size="small" placeholder="Industry" value={industry} onChange={e => setIndustry(e.target.value)} sx={{ input: { color: '#F1A501' } }} />
         <TextField size="small" placeholder="Region" value={region} onChange={e => setRegion(e.target.value)} sx={{ input: { color: '#F1A501' } }} />
+        <Button variant="outlined" onClick={exportCsv} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Export CSV</Button>
       </Box>
       <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700' }}>
         {isLoading && <SkeletonBlock height={160} />}

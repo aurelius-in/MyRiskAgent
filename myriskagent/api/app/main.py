@@ -23,6 +23,7 @@ from .agents.sanctions import SanctionsAgent
 from .search.keyword import bm25_score
 from .telemetry import init_tracing, get_tracer
 from .risk.explain import explain_scores
+from .agents.social import SocialAgent
 
 # Prometheus
 from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
@@ -533,3 +534,13 @@ async def agents_sanctions(req: SanctionsRequest):
     agent = SanctionsAgent()
     flags = await agent.check(req.name)
     return {"count": len(flags), "flags": [f.__dict__ for f in flags]}
+
+@app.get("/social/{org_id}/recent")
+async def social_recent(org_id: int, days: int = 60):
+    agent = SocialAgent()
+    res = await agent.scan(query=str(org_id), days=days)
+    return {
+        "org_id": org_id,
+        "c_online": res.online_component,
+        "events": res.events,
+    }

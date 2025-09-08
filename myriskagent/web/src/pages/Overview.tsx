@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { apiPost } from '../lib/api'
 import RiskGauge from '../components/RiskGauge'
 import TrendSparkline from '../components/TrendSparkline'
+import SocialSparkline from '../components/SocialSparkline'
 import WhatIfPanel from '../components/WhatIfPanel'
 import SkeletonBlock from '../components/SkeletonBlock'
 import { useOrg } from '../context/OrgContext'
@@ -20,6 +21,11 @@ const Overview: React.FC = () => {
       return resp
     },
     staleTime: 15_000,
+  })
+  const social = useQuery({
+    queryKey: ['social', orgId],
+    queryFn: async () => (await fetch(`/api/social/${orgId}/recent`)).json(),
+    staleTime: 60_000,
   })
 
   const [trend] = React.useState<number[]>(Array.from({ length: 24 }, (_, i) => 40 + i % 6))
@@ -82,13 +88,21 @@ const Overview: React.FC = () => {
             </Paper>
           </Grid>
           <Grid item xs={12} md={6}>
-            <Paper sx={{ p: 2, bgcolor: '#111', border: '1px solid #B30700' }}>
+            <Paper sx={{ p: 2, bgcolor: '#111', border: '1px solid #B30700', mb: 2 }}>
               <Typography variant="h6" sx={{ color: '#F1A501', fontFamily: 'Special Elite, serif' }}>Family Scores</Typography>
               <Box sx={{ display: 'flex', gap: 2 }}>
                 <RiskGauge label="Financial" value={fin} />
                 <RiskGauge label="Compliance" value={comp} />
                 <RiskGauge label="Operational" value={op} />
               </Box>
+            </Paper>
+            <Paper sx={{ p: 2, bgcolor: '#111', border: '1px solid #B30700' }}>
+              <Typography variant="h6" sx={{ color: '#F1A501', fontFamily: 'Special Elite, serif' }}>Social Signals</Typography>
+              {social.isLoading && <SkeletonBlock height={60} />}
+              {!social.isLoading && social.data && <SocialSparkline events={social.data.events || []} />}
+              {!social.isLoading && social.data && (
+                <Typography sx={{ color: '#F1A501', mt: 1 }}>Online component: {Number(social.data.c_online || 0).toFixed(1)}</Typography>
+              )}
             </Paper>
           </Grid>
         </Grid>

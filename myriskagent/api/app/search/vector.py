@@ -42,10 +42,6 @@ class PgVectorStore:
         self.engine = create_engine(sqlalchemy_uri, echo=False)
 
     def upsert_documents(self, docs: Sequence[DocumentUpsert]) -> int:
-        """Insert or update documents, storing hashed embeddings.
-
-        Requires table app.models.Document to exist (created on app startup).
-        """
         if not docs:
             return 0
         inserted = 0
@@ -53,58 +49,45 @@ class PgVectorStore:
         with self.engine.begin() as conn:
             for d in docs:
                 emb = hash_embed(d.content, emb_dim)
-                # Use UPSERT on (url) if provided else insert always
-                stmt = text(
-                    """
-                    insert into document (org_id, source_id, title, url, published_at, content, embedding, created_at)
-                    values (:org_id, NULL, :title, :url, :published_at, :content, :embedding, now())
-                    on conflict (url) do update set
-                        title = excluded.title,
-                        content = excluded.content,
-                        published_at = excluded.published_at,
-                        embedding = excluded.embedding
-                    """
+                if d.url:
+                    # Try find existing by URL
+                    row = conn.execute(text("select id from document where url = :url limit 1"), {"url": d.url}).first()
+                    if row:
+                        # Update existing
+                        conn.execute(
+                            text(
+                                "update document set title=:title, content=:content, published_at=:published_at, embedding=:embedding where id=:id"
+                            ),
+                            {
+                                "title": d.title,
+                                "content": d.content,
+                                "published_at": d.published_at,
+                                "embedding": emb,
+                                "id": row[0],
+                            },
+                        )
+                        inserted += 1
+                        continue
+                # Insert new
+                conn.execute(
+                    text(
+                        "insert into document (org_id, source_id, title, url, published_at, content, embedding, created_at) values (:org_id, NULL, :title, :url, :published_at, :content, :embedding, now())"
+                    ),
+                    {
+                        "org_id": d.org_id,
+                        "title": d.title,
+                        "url": d.url,
+                        "published_at": d.published_at,
+                        "content": d.content,
+                        "embedding": emb,
+                    },
                 )
-                try:
-                    conn.execute(
-                        stmt,
-                        {
-                            "org_id": d.org_id,
-                            "title": d.title,
-                            "url": d.url,
-                            "published_at": d.published_at,
-                            "content": d.content,
-                            "embedding": emb,
-                        },
-                    )
-                    inserted += 1
-                except Exception:
-                    # Fallback: try without conflict if url missing
-                    stmt2 = text(
-                        """
-                        insert into document (org_id, source_id, title, url, published_at, content, embedding, created_at)
-                        values (:org_id, NULL, :title, :url, :published_at, :content, :embedding, now())
-                        """
-                    )
-                    conn.execute(
-                        stmt2,
-                        {
-                            "org_id": d.org_id,
-                            "title": d.title,
-                            "url": d.url,
-                            "published_at": d.published_at,
-                            "content": d.content,
-                            "embedding": emb,
-                        },
-                    )
-                    inserted += 1
+                inserted += 1
         return inserted
 
     def search(self, query: str, org_id: Optional[int], k: int = 5) -> List[dict]:
         q_emb = hash_embed(query)
-        placeholders = ",".join([str(x) for x in q_emb])
         org_filter = "and org_id = :org_id" if org_id is not None else ""
-        # cosine distance operator for pgvector is <=>; lower is better
         sql = text(
             f"""
             select id, org_id, title, url, published_at, left(content, 300) as snippet,
@@ -115,10 +98,11 @@ class PgVectorStore:
             limit :k
             """
         )
+        params = {"qvec": q_emb, "k": k}
+        if org_id is not None:
+            params["org_id"] = org_id
         with self.engine.begin() as conn:
-            rows = conn.execute(
-                sql, {"qvec": q_emb, "k": k, "org_id": org_id} if org_id is not None else {"qvec": q_emb, "k": k}
-            ).mappings().all()
+            rows = conn.execute(sql, params).mappings().all()
         results = []
         for r in rows:
             results.append(
