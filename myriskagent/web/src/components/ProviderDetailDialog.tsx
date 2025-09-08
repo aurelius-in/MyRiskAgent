@@ -20,11 +20,16 @@ interface Props {
 }
 
 const ProviderDetailDialog: React.FC<Props> = ({ open, onClose, detail }) => {
+  const values = (detail?.series || []).map(s => s.amount)
+  const mean = values.length ? values.reduce((a,b)=>a+b,0)/values.length : 0
+  const std = values.length ? Math.sqrt(values.map(v => (v-mean)*(v-mean)).reduce((a,b)=>a+b,0)/values.length) : 1
+  const spikes = new Set<number>()
+  (detail?.series || []).forEach((s, idx) => { if (std>0 && Math.abs(s.amount - mean) > 2 * std) spikes.add(idx) })
   const option = {
     backgroundColor: 'transparent',
     xAxis: { type: 'category', data: (detail?.series || []).map(s => s.date), axisLabel: { color: '#F1A501' } },
     yAxis: { type: 'value', axisLabel: { color: '#F1A501' } },
-    series: [{ type: 'line', data: (detail?.series || []).map(s => s.amount), lineStyle: { color: '#F1A501' } }],
+    series: [{ type: 'line', data: (detail?.series || []).map((s, idx) => ({ value: s.amount, itemStyle: spikes.has(idx) ? { color: '#B30700' } : undefined })), lineStyle: { color: '#F1A501' } }],
   }
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
