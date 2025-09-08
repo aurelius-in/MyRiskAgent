@@ -1,7 +1,7 @@
 import React from 'react'
 import { Box, Grid, Typography, Paper, Button } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
-import { apiPost } from '../lib/api'
+import { apiPost, apiGetBlob } from '../lib/api'
 import RiskGauge from '../components/RiskGauge'
 import TrendSparkline from '../components/TrendSparkline'
 import WhatIfPanel from '../components/WhatIfPanel'
@@ -34,6 +34,16 @@ const Overview: React.FC = () => {
     setOpen(false)
   }
 
+  const downloadEvidence = async () => {
+    const res = await fetch('/api/evidence/org/1/latest')
+    if (res.ok) {
+      const data = await res.json()
+      if (data?.uri) {
+        window.open(data.uri, '_blank')
+      }
+    }
+  }
+
   return (
     <Box>
       <Typography variant="h4" gutterBottom>Overview</Typography>
@@ -45,7 +55,10 @@ const Overview: React.FC = () => {
             <Paper sx={{ p: 2, bgcolor: '#111', border: '1px solid #B30700' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="h6" sx={{ color: '#F1A501', fontFamily: 'Special Elite, serif' }}>Combined Index</Typography>
-                <Button variant="outlined" onClick={() => setOpen(true)} sx={{ color: '#F1A501', borderColor: '#B30700' }}>What If</Button>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button variant="outlined" onClick={() => setOpen(true)} sx={{ color: '#F1A501', borderColor: '#B30700' }}>What If</Button>
+                  <Button variant="outlined" onClick={downloadEvidence} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Evidence</Button>
+                </Box>
               </Box>
               <RiskGauge label="Engagement Risk" value={combined} />
               <TrendSparkline values={trend} />

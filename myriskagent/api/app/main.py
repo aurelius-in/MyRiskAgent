@@ -11,6 +11,9 @@ from sqlmodel import SQLModel, create_engine
 from .config import get_settings, Settings
 from .search.vector import InMemoryVectorStore, DocumentUpsert
 from .agents.provider_outlier import ProviderOutlierAgent
+from .agents.narrator import NarratorAgent
+from .agents.evidence import EvidenceAgent
+from .storage.io import ObjectStore
 
 # Prometheus
 from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
@@ -34,6 +37,10 @@ VECTOR_STORE = InMemoryVectorStore()
 # Basic request counter
 REQUEST_COUNTER = Counter("mra_requests_total", "Total HTTP requests", ["path", "method", "status"])
 
+# Agents configured at startup
+NARRATOR: Optional[NarratorAgent] = None
+EVIDENCE: Optional[EvidenceAgent] = None
+
 
 @app.middleware("http")
 async def metrics_middleware(request: Request, call_next):
@@ -52,6 +59,7 @@ def get_engine(settings: Settings = Depends(get_settings)):
 
 @app.on_event("startup")
 async def startup_event():
+    global NARRATOR, EVIDENCE
     settings = get_settings()
     engine = create_engine(settings.sqlalchemy_database_uri, echo=False)
     SQLModel.metadata.create_all(engine)
@@ -62,6 +70,9 @@ async def startup_event():
             DocumentUpsert(id=None, org_id=1, title="ACME Litigation Update", url="https://example.com/acme-litigation", content="A minor litigation was settled with no material impact."),
         ]
     )
+    # Agents
+    NARRATOR = NarratorAgent(openai_api_key=settings.openai_api_key)
+    EVIDENCE = EvidenceAgent(store=ObjectStore(base_uri=settings.object_store_uri))
 
 
 @app.get("/metrics")
@@ -151,6 +162,21 @@ async def ask(req: AskRequest):
     return {"answer": "This is a placeholder answer.", "citations": citations}
 
 
+@app.post("/report/executive/{org_id}/{period}")
+async def report_executive(org_id: int, period: str):
+    if NARRATOR is None:
+        raise HTTPException(status_code=500, detail="Narrator not initialized")
+    # In a full implementation we would fetch top docs and scores
+    rep = await NARRATOR.build_reports({"org_id": org_id, "period": period})
+    return {"html": rep.html, "summary": rep.summary}
+
+
 @app.get("/evidence/{entity}/{id}/{period}")
 async def get_evidence(entity: str, id: str, period: str):
-    return {"entity": entity, "id": id, "period": period, "uri": None}
+    if EVIDENCE is None:
+        raise HTTPException(status_code=500, detail="Evidence not initialized")
+    uri = EVIDENCE.build(entity, id, period, payloads={
+        "scores.json": b"{}",
+        "README.txt": f"Evidence for {entity}:{id} {period}".encode("utf-8"),
+    }).uri
+    return {"entity": entity, "id": id, "period": period, "uri": uri}
