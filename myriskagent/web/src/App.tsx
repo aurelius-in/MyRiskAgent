@@ -6,9 +6,11 @@ import Overview from './pages/Overview'
 import Documents from './pages/Documents'
 import Scores from './pages/Scores'
 import Ask from './pages/Ask'
+import Providers from './pages/Providers'
+import Drivers from './pages/Drivers'
 import NavLogo from './components/NavLogo'
-import ErrorBoundary from './components/ErrorBoundary'
 import { OrgProvider, useOrg } from './context/OrgContext'
+import ErrorBoundary from './components/ErrorBoundary'
 
 function a11yProps(index: number) {
   return {
@@ -66,6 +68,7 @@ const App: React.FC = () => {
                 <Tab label="Drivers" {...a11yProps(2)} sx={{ color: '#F1A501' }} />
                 <Tab label="Documents" {...a11yProps(3)} sx={{ color: '#F1A501' }} />
                 <Tab label="Ask" {...a11yProps(4)} sx={{ color: '#F1A501' }} />
+                <Tab label="Providers" {...a11yProps(5)} sx={{ color: '#F1A501' }} />
               </Tabs>
             </Toolbar>
           </AppBar>
@@ -73,9 +76,10 @@ const App: React.FC = () => {
             <ErrorBoundary>
               {tab === 0 && <Overview />}
               {tab === 1 && <Scores />}
-              {tab === 2 && <div style={{ color: '#F1A501' }}>Drivers coming soon.</div>}
+              {tab === 2 && <Drivers />}
               {tab === 3 && <Documents />}
               {tab === 4 && <Ask />}
+              {tab === 5 && <Providers />}
             </ErrorBoundary>
           </Box>
           <Footer />
