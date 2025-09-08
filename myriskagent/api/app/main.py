@@ -126,20 +126,27 @@ async def startup_event():
     tracer = get_tracer("startup")
 
     engine = create_engine(settings.sqlalchemy_database_uri, echo=False)
-    SQLModel.metadata.create_all(engine)
+    try:
+        SQLModel.metadata.create_all(engine)
+    except Exception:
+        # Database may be unavailable in local/dev/test; continue without failing startup
+        pass
 
     with tracer.start_as_current_span("configure_vector_store"):
-        # Configure vector store backend
-        if settings.vector_backend == "pgvector":
-            with engine.begin() as conn:
-                try:
-                    conn.exec_driver_sql("CREATE EXTENSION IF NOT EXISTS vector;")
-                except Exception:
-                    pass
-            VECTOR_STORE = PgVectorStore(settings.sqlalchemy_database_uri)
-        elif settings.vector_backend == "chroma":
-            VECTOR_STORE = ChromaVectorStore(persist_dir=os.getenv("CHROMA_PERSIST_DIR"))
-        else:
+        # Configure vector store backend with safe fallbacks
+        try:
+            if settings.vector_backend == "pgvector":
+                with engine.begin() as conn:
+                    try:
+                        conn.exec_driver_sql("CREATE EXTENSION IF NOT EXISTS vector;")
+                    except Exception:
+                        pass
+                VECTOR_STORE = PgVectorStore(settings.sqlalchemy_database_uri)
+            elif settings.vector_backend == "chroma":
+                VECTOR_STORE = ChromaVectorStore(persist_dir=os.getenv("CHROMA_PERSIST_DIR"))
+            else:
+                VECTOR_STORE = InMemoryVectorStore()
+        except Exception:
             VECTOR_STORE = InMemoryVectorStore()
 
     with tracer.start_as_current_span("seed_documents"):

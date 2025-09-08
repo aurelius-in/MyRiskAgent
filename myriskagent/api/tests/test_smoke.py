@@ -1,5 +1,8 @@
+import os
 from fastapi.testclient import TestClient
 
+os.environ.setdefault("OVERRIDE_HASH_EMBED", "true")
+os.environ.setdefault("VECTOR_BACKEND", "chroma")
 from app.main import app
 
 
