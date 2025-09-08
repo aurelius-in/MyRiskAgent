@@ -6,6 +6,7 @@ import Overview from './pages/Overview'
 import Documents from './pages/Documents'
 import Scores from './pages/Scores'
 import Ask from './pages/Ask'
+import NavLogo from './components/NavLogo'
 
 function a11yProps(index: number) {
   return {
@@ -23,9 +24,10 @@ const App: React.FC = () => {
         <CssBaseline />
         <AppBar position="static" sx={{ bgcolor: '#000000', borderBottom: '1px solid #B30700' }}>
           <Toolbar>
+            <NavLogo />
             <Typography
               variant="h6"
-              sx={{ flexGrow: 1, color: '#F1A501', fontFamily: 'Special Elite, serif' }}
+              sx={{ flexGrow: 1, color: '#F1A501', fontFamily: 'Special Elite, serif', ml: 1 }}
             >
               <span style={{ fontFamily: 'Arial, sans-serif' }}>My</span>
               <span style={{ color: '#B30700', margin: '0 6px' }}>Risk</span>

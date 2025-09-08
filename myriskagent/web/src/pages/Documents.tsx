@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Typography, TextField, Button, List, ListItem, ListItemText, Paper } from '@mui/material'
+import { Box, Typography, TextField, Button, List, ListItem, ListItemText, Paper, Grid } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { apiGet } from '../lib/api'
 import type { DocResult } from '../lib/types'
@@ -7,6 +7,7 @@ import SkeletonBlock from '../components/SkeletonBlock'
 
 const Documents: React.FC = () => {
   const [q, setQ] = React.useState('')
+  const [selected, setSelected] = React.useState<DocResult | null>(null)
   const { data, isFetching, refetch, isError } = useQuery({
     queryKey: ['docs', q],
     enabled: false,
@@ -25,20 +26,33 @@ const Documents: React.FC = () => {
         />
         <Button variant="outlined" onClick={() => refetch()} disabled={isFetching} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Search</Button>
       </Box>
-      <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700', p: 1 }}>
-        {isFetching && <SkeletonBlock height={100} />}
-        {isError && <div style={{ color: '#B30700' }}>Search failed. Try again.</div>}
-        {!isFetching && !isError && (
-          <List>
-            {results.map((r) => (
-              <ListItem key={r.id} component="a" href={r.url || '#'} target="_blank">
-                <ListItemText primary={r.title} secondary={r.snippet} sx={{ color: '#F1A501' }} />
-              </ListItem>
-            ))}
-            {results.length === 0 && <ListItem><ListItemText primary={'No results yet.'} sx={{ color: '#F1A501' }} /></ListItem>}
-          </List>
-        )}
-      </Paper>
+      <Grid container spacing={2}>
+        <Grid item xs={12} md={5}>
+          <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700', p: 1 }}>
+            {isFetching && <SkeletonBlock height={100} />}
+            {isError && <div style={{ color: '#B30700' }}>Search failed. Try again.</div>}
+            {!isFetching && !isError && (
+              <List>
+                {results.map((r) => (
+                  <ListItem key={r.id} button onClick={() => setSelected(r)}>
+                    <ListItemText primary={r.title} secondary={r.snippet} sx={{ color: '#F1A501' }} />
+                  </ListItem>
+                ))}
+                {results.length === 0 && <ListItem><ListItemText primary={'No results yet.'} sx={{ color: '#F1A501' }} /></ListItem>}
+              </List>
+            )}
+          </Paper>
+        </Grid>
+        <Grid item xs={12} md={7}>
+          <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700', p: 1, minHeight: 240 }}>
+            {selected ? (
+              <iframe title="doc" src={selected.url} style={{ width: '100%', height: 360, border: 'none', background: '#000' }} />
+            ) : (
+              <div style={{ color: '#F1A501' }}>Select a document to preview.</div>
+            )}
+          </Paper>
+        </Grid>
+      </Grid>
     </Box>
   )
 }
