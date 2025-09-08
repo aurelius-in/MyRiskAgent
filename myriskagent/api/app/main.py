@@ -18,6 +18,7 @@ from .risk.engine import compute_family_scores, combine_scores  # NEW: use engin
 from .agents.news import NewsAgent
 from .agents.filings import FilingsAgent
 from .agents.sanctions import SanctionsAgent
+from .search.keyword import bm25_score
 
 # Prometheus
 from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
@@ -53,6 +54,9 @@ EVIDENCE: Optional[EvidenceAgent] = None
 # In-memory claims store for MVP
 CLAIMS_BY_ORG: dict[int, pd.DataFrame] = {}
 
+# In-memory documents for keyword search (MVP)
+DOCS: list[dict] = []
+
 VERSION = "0.1.0"
 
 @app.get("/version")
@@ -77,7 +81,7 @@ def get_engine(settings: Settings = Depends(get_settings)):
 
 @app.on_event("startup")
 async def startup_event():
-    global NARRATOR, EVIDENCE, VECTOR_STORE
+    global NARRATOR, EVIDENCE, VECTOR_STORE, DOCS
     settings = get_settings()
     engine = create_engine(settings.sqlalchemy_database_uri, echo=False)
     SQLModel.metadata.create_all(engine)
@@ -94,14 +98,16 @@ async def startup_event():
     else:
         VECTOR_STORE = InMemoryVectorStore()
 
-    # Seed a couple demo documents into the vector store
+    # Seed demo documents
+    seed_docs = [
+        {"id": 1, "org_id": 1, "title": "ACME Q4 Results", "url": "https://example.com/acme-q4", "content": "ACME reported steady margins and lower debt."},
+        {"id": 2, "org_id": 1, "title": "ACME Litigation Update", "url": "https://example.com/acme-litigation", "content": "A minor litigation was settled with no material impact."},
+    ]
+    DOCS = seed_docs.copy()
     if VECTOR_STORE is not None:
-        VECTOR_STORE.upsert_documents(
-            [
-                DocumentUpsert(id=None, org_id=1, title="ACME Q4 Results", url="https://example.com/acme-q4", content="ACME reported steady margins and lower debt."),
-                DocumentUpsert(id=None, org_id=1, title="ACME Litigation Update", url="https://example.com/acme-litigation", content="A minor litigation was settled with no material impact."),
-            ]
-        )
+        VECTOR_STORE.upsert_documents([
+            DocumentUpsert(id=None, org_id=d["org_id"], title=d["title"], url=d["url"], content=d["content"]) for d in seed_docs
+        ])
 
     # Agents
     NARRATOR = NarratorAgent(openai_api_key=settings.openai_api_key)
@@ -271,6 +277,21 @@ async def docs_search(q: str, org_id: Optional[int] = None):
     return {"query": q, "org_id": org_id, "results": results}
 
 
+@app.get("/docs/search/keyword")
+async def docs_search_keyword(q: str, org_id: Optional[int] = None):
+    # Collect in-memory docs for this org (or all)
+    corpus = [(str(d.get("id")), f"{d.get('title','')}\n{d.get('content','')}") for d in DOCS if org_id is None or d.get("org_id") == org_id]
+    ranked = bm25_score(q, corpus)
+    # Map back to doc entries
+    top = []
+    for doc_id, score in ranked[:10]:
+        for d in DOCS:
+            if str(d.get("id")) == doc_id:
+                top.append({"id": d.get("id"), "title": d.get("title"), "url": d.get("url"), "snippet": d.get("content"), "score": score})
+                break
+    return {"query": q, "org_id": org_id, "results": top}
+
+
 class AskRequest(BaseModel):
     question: str
     org_id: Optional[int] = None
@@ -330,6 +351,9 @@ async def agents_news(req: AgentFetchRequest):
     for it in res.embeds:
         docs.append(DocumentUpsert(id=None, org_id=1, title=it.get("text"), url=it.get("id"), content=it.get("text", "")))
     count = VECTOR_STORE.upsert_documents(docs)
+    # add to in-memory DOCS
+    for it in res.embeds:
+        DOCS.append({"id": len(DOCS) + 1, "org_id": 1, "title": it.get("text"), "url": it.get("id"), "content": it.get("text", "")})
     return {"fetched": len(res.items), "upserted": count}
 
 @app.post("/agents/filings")
@@ -344,6 +368,8 @@ async def agents_filings(req: AgentFetchRequest):
     for it in res.embeds:
         docs.append(DocumentUpsert(id=None, org_id=1, title=it.get("text"), url=it.get("id"), content=it.get("text", "")))
     count = VECTOR_STORE.upsert_documents(docs)
+    for it in res.embeds:
+        DOCS.append({"id": len(DOCS) + 1, "org_id": 1, "title": it.get("text"), "url": it.get("id"), "content": it.get("text", "")})
     return {"upserted": count, "snippets": len(res.snippets)}
 
 class SanctionsRequest(BaseModel):
