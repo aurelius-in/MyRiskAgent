@@ -23,6 +23,7 @@ const Documents: React.FC = () => {
     try { const raw = localStorage.getItem('mra_pinned_docs'); return raw ? JSON.parse(raw) : [] } catch { return [] }
   })
   const [pinnedOnly, setPinnedOnly] = React.useState(false)
+  const [selectedIdx, setSelectedIdx] = React.useState<number>(-1)
 
   const recent = useQuery({
     queryKey: ['docs-recent', orgId, recentLimit],
@@ -99,7 +100,30 @@ const Documents: React.FC = () => {
       </Stack>
       <Grid container spacing={2}>
         <Grid item xs={12} md={5}>
-          <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700', p: 1 }}>
+          <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700', p: 1 }}
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown') {
+                e.preventDefault()
+                const count = results.length || 0
+                if (count > 0) {
+                  const next = Math.min((selectedIdx < 0 ? -1 : selectedIdx) + 1, count - 1)
+                  setSelectedIdx(next)
+                  setSelected(results[next])
+                }
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault()
+                const count = results.length || 0
+                if (count > 0) {
+                  const next = Math.max((selectedIdx < 0 ? 0 : selectedIdx) - 1, 0)
+                  setSelectedIdx(next)
+                  setSelected(results[next])
+                }
+              } else if (e.key === 'Enter') {
+                if (selected && selected.url) window.open(selected.url, '_blank')
+              }
+            }}
+          >
             {!!pinned.length && (
               <>
                 <Typography variant="subtitle1" sx={{ color: '#B30700', fontFamily: 'Special Elite, serif' }}>Pinned</Typography>
@@ -118,15 +142,16 @@ const Documents: React.FC = () => {
             {!isFetching && !isError && (
               <>
                 <List>
-                  {results.map((r) => {
+                  {results.map((r, i) => {
                     const pinnedOn = !!pinned.find(d => String(d.id) === String(r.id))
                     return (
-                      <ListItem key={r.id} button onClick={() => setSelected(r)}
+                      <ListItem key={r.id} button onClick={() => { setSelected(r); setSelectedIdx(i) }}
                         secondaryAction={
                           <IconButton edge="end" onClick={(e) => { e.stopPropagation(); togglePin(r) }} sx={{ color: '#F1A501' }}>
                             {pinnedOn ? <Star /> : <StarBorder />}
                           </IconButton>
                         }
+                        sx={{ bgcolor: selectedIdx === i ? '#1a1a1a' : 'transparent' }}
                       >
                         <ListItemText primary={r.title} secondary={r.snippet} sx={{ color: '#F1A501' }} />
                       </ListItem>

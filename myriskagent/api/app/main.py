@@ -709,6 +709,10 @@ async def report_pdf(org_id: int, period: str):
     # Body
     c.setFillColor(HexColor("#F1A501"))
     c.setFont("Helvetica", 11)
+    # Dark body area
+    c.setFillColor(HexColor("#000000"))
+    c.rect(54, 60, 504, 680, fill=1, stroke=0)
+    c.setFillColor(HexColor("#F1A501"))
     c.drawString(72, 760, "This is a minimal PDF placeholder for the full report.")
     c.showPage()
     c.save()
