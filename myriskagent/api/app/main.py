@@ -53,6 +53,12 @@ EVIDENCE: Optional[EvidenceAgent] = None
 # In-memory claims store for MVP
 CLAIMS_BY_ORG: dict[int, pd.DataFrame] = {}
 
+VERSION = "0.1.0"
+
+@app.get("/version")
+async def version():
+    return {"version": VERSION, "time": datetime.utcnow().isoformat()}
+
 
 @app.middleware("http")
 async def metrics_middleware(request: Request, call_next):

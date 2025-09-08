@@ -1,6 +1,6 @@
 import React from 'react'
 import { AppBar, Box, CssBaseline, Tab, Tabs, Toolbar, Typography } from '@mui/material'
-import { QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { queryClient } from './lib/query'
 import Overview from './pages/Overview'
 import Documents from './pages/Documents'
@@ -15,12 +15,21 @@ function a11yProps(index: number) {
   }
 }
 
+const Footer: React.FC = () => {
+  const { data } = useQuery({ queryKey: ['version'], queryFn: async () => (await fetch('/api/version')).json() })
+  return (
+    <Box component="footer" sx={{ mt: 4, py: 1, borderTop: '1px solid #333', color: '#F1A501', textAlign: 'center' }}>
+      <small>MyRiskAgent v{data?.version ?? 'dev'}</small>
+    </Box>
+  )
+}
+
 const App: React.FC = () => {
   const [tab, setTab] = React.useState(0)
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Box sx={{ bgcolor: 'black', minHeight: '100vh' }}>
+      <Box sx={{ bgcolor: 'black', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <CssBaseline />
         <AppBar position="static" sx={{ bgcolor: '#000000', borderBottom: '1px solid #B30700' }}>
           <Toolbar>
@@ -47,13 +56,14 @@ const App: React.FC = () => {
             </Tabs>
           </Toolbar>
         </AppBar>
-        <Box sx={{ p: 2 }}>
+        <Box sx={{ p: 2, flex: 1 }}>
           {tab === 0 && <Overview />}
           {tab === 1 && <Scores />}
           {tab === 2 && <div style={{ color: '#F1A501' }}>Drivers coming soon.</div>}
           {tab === 3 && <Documents />}
           {tab === 4 && <Ask />}
         </Box>
+        <Footer />
       </Box>
     </QueryClientProvider>
   )
