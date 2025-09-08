@@ -37,6 +37,8 @@ class Claim(SQLModel, table=True):
     category: Optional[str] = Field(default=None, sa_column=Column(String(64)))
     claim_amount: float = Field(default=0.0, sa_column=Column(Float))
     claim_date: Optional[date] = None
+    industry: Optional[str] = Field(default=None, sa_column=Column(String(128)))
+    region: Optional[str] = Field(default=None, sa_column=Column(String(64)))
     created_at: datetime = Field(default_factory=datetime.utcnow, sa_column=Column(DateTime(timezone=False)))
 
 
@@ -46,6 +48,29 @@ class ProviderFeature(SQLModel, table=True):
     org_id: int = Field(sa_column=Column(Integer, index=True, nullable=False))
     period: str = Field(sa_column=Column(String(32), index=True, nullable=False))
     features: dict = Field(default_factory=dict, sa_column=Column(JSONB))
+    created_at: datetime = Field(default_factory=datetime.utcnow, sa_column=Column(DateTime(timezone=False)))
+
+
+class ProviderAggregate(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    org_id: int = Field(sa_column=Column(Integer, index=True, nullable=False))
+    provider_id: int = Field(sa_column=Column(Integer, index=True, nullable=False))
+    period: str = Field(sa_column=Column(String(32), index=True, nullable=False))
+    total_amount: float = Field(sa_column=Column(Float))
+    avg_amount: float = Field(sa_column=Column(Float))
+    n_claims: int = Field(sa_column=Column(Integer))
+    industry: Optional[str] = Field(default=None, sa_column=Column(String(128)))
+    region: Optional[str] = Field(default=None, sa_column=Column(String(64)))
+    created_at: datetime = Field(default_factory=datetime.utcnow, sa_column=Column(DateTime(timezone=False)))
+
+
+class ProviderOutlier(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    org_id: int = Field(sa_column=Column(Integer, index=True, nullable=False))
+    provider_id: int = Field(sa_column=Column(Integer, index=True, nullable=False))
+    period: str = Field(sa_column=Column(String(32), index=True, nullable=False))
+    score: float = Field(sa_column=Column(Float))
+    details: dict = Field(default_factory=dict, sa_column=Column(JSONB))
     created_at: datetime = Field(default_factory=datetime.utcnow, sa_column=Column(DateTime(timezone=False)))
 
 
@@ -85,7 +110,6 @@ class Document(SQLModel, table=True):
     url: Optional[str] = Field(default=None, sa_column=Column(String(2048)))
     published_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=False)))
     content: Optional[str] = None
-    # Optional pgvector embedding column (1536 dims defaults)
     embedding: Optional[list[float]] = Field(
         default=None,
         sa_column=Column(Vector(1536)) if Vector is not None else None,  # type: ignore[arg-type]

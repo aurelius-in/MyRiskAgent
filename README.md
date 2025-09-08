@@ -38,15 +38,15 @@ myriskagent/
 Copy `.env.example` to `.env` and adjust values.
 - DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME
 - REDIS_URL
-- VECTOR_BACKEND=pgvector or chroma (fallback: in-memory hashing embeddings)
-- USE_OPENAI_EMBEDDINGS=true|false (optional)
-- OPENAI_EMBEDDING_MODEL=text-embedding-3-small (optional)
-- CHROMA_PERSIST_DIR= (optional; when VECTOR_BACKEND=chroma)
+- VECTOR_BACKEND=pgvector or chroma
+- OPENAI_API_KEY (required; embeddings and LLMs)
+- OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+- OVERRIDE_HASH_EMBED=false (dev-only fallback; set true to bypass OpenAI for local testing)
+- CHROMA_PERSIST_DIR= (when VECTOR_BACKEND=chroma)
 - OBJECT_STORE_URI (e.g., file:///data)
 - OTEL_EXPORTER_OTLP_ENDPOINT (optional)
 - NEWSAPI_KEY (optional)
 - ALPHAVANTAGE_KEY (optional)
-- OPENAI_API_KEY (required for narrator/QA in full build; optional for embeddings if enabled)
 
 ## Quick Start (Docker Compose)
 From repo root:
@@ -67,6 +67,8 @@ uvicorn app.main:app --reload --port 8000
 ```
 
 If using pgvector: ensure Postgres has the `vector` extension. If using Chroma: set `VECTOR_BACKEND=chroma` and optionally `CHROMA_PERSIST_DIR`.
+
+Embeddings are required by default. For offline local development only, you may set `OVERRIDE_HASH_EMBED=true` to use a hash-based embedding fallback (reduced quality, non-production).
 
 To run migrations (optional; initial migration includes `document` table):
 ```bash

@@ -20,8 +20,6 @@ except Exception:  # pragma: no cover
     chromadb = None  # type: ignore
 
 
-# Hashing-trick embedding fallback
-
 def _tokenize(text: str) -> List[str]:
     return re.findall(r"[A-Za-z0-9_]+", text.lower())
 
@@ -39,26 +37,32 @@ def hash_embed(text: str, dim: int = 1536) -> List[float]:
 
 
 def get_embedder(dim: int = 1536) -> Callable[[str], List[float]]:
-    use_openai = os.getenv("USE_OPENAI_EMBEDDINGS", "").lower() in {"1", "true", "yes"}
+    """Return an embedding function using OpenAI. Required by policy.
+
+    If OVERRIDE_HASH_EMBED=true is set (for local dev only), use hashing fallback.
+    """
+    if os.getenv("OVERRIDE_HASH_EMBED", "").lower() in {"1", "true", "yes"}:
+        return lambda t: hash_embed(t, dim)
+
     api_key = os.getenv("OPENAI_API_KEY")
-    if use_openai and api_key and openai is not None:  # pragma: no cover (network)
-        client = openai.OpenAI(api_key=api_key)
-        model = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
+    if openai is None or not api_key:
+        raise RuntimeError("OPENAI_API_KEY is required for embeddings (no fallback)")
+    client = openai.OpenAI(api_key=api_key)
+    model = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
 
-        def _embed(text: str) -> List[float]:
-            resp = client.embeddings.create(model=model, input=text[:8000])
-            vec = resp.data[0].embedding
-            if len(vec) > dim:
-                vec2 = vec[:dim]
-            elif len(vec) < dim:
-                vec2 = vec + [0.0] * (dim - len(vec))
-            else:
-                vec2 = vec
-            n = math.sqrt(sum(v * v for v in vec2)) or 1.0
-            return [v / n for v in vec2]
+    def _embed(text: str) -> List[float]:
+        resp = client.embeddings.create(model=model, input=text[:8000])
+        vec = resp.data[0].embedding
+        if len(vec) > dim:
+            vec2 = vec[:dim]
+        elif len(vec) < dim:
+            vec2 = vec + [0.0] * (dim - len(vec))
+        else:
+            vec2 = vec
+        n = math.sqrt(sum(v * v for v in vec2)) or 1.0
+        return [v / n for v in vec2]
 
-        return _embed
-    return lambda t: hash_embed(t, dim)
+    return _embed
 
 
 @dataclass
