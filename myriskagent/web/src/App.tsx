@@ -7,6 +7,7 @@ import Documents from './pages/Documents'
 import Scores from './pages/Scores'
 import Ask from './pages/Ask'
 import NavLogo from './components/NavLogo'
+import ErrorBoundary from './components/ErrorBoundary'
 
 function a11yProps(index: number) {
   return {
@@ -57,11 +58,13 @@ const App: React.FC = () => {
           </Toolbar>
         </AppBar>
         <Box sx={{ p: 2, flex: 1 }}>
-          {tab === 0 && <Overview />}
-          {tab === 1 && <Scores />}
-          {tab === 2 && <div style={{ color: '#F1A501' }}>Drivers coming soon.</div>}
-          {tab === 3 && <Documents />}
-          {tab === 4 && <Ask />}
+          <ErrorBoundary>
+            {tab === 0 && <Overview />}
+            {tab === 1 && <Scores />}
+            {tab === 2 && <div style={{ color: '#F1A501' }}>Drivers coming soon.</div>}
+            {tab === 3 && <Documents />}
+            {tab === 4 && <Ask />}
+          </ErrorBoundary>
         </Box>
         <Footer />
       </Box>
