@@ -1,6 +1,8 @@
 import React from 'react'
 import { AppBar, Box, CssBaseline, Tab, Tabs, Toolbar, Typography } from '@mui/material'
 import Overview from './pages/Overview'
+import Documents from './pages/Documents'
+import Ask from './pages/Ask'
 
 function a11yProps(index: number) {
   return {
@@ -43,8 +45,8 @@ const App: React.FC = () => {
         {tab === 0 && <Overview />}
         {tab === 1 && <div style={{ color: '#F1A501' }}>Scores coming soon.</div>}
         {tab === 2 && <div style={{ color: '#F1A501' }}>Drivers coming soon.</div>}
-        {tab === 3 && <div style={{ color: '#F1A501' }}>Documents coming soon.</div>}
-        {tab === 4 && <div style={{ color: '#F1A501' }}>Ask coming soon.</div>}
+        {tab === 3 && <Documents />}
+        {tab === 4 && <Ask />}
       </Box>
     </Box>
   )
