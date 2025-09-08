@@ -1,6 +1,6 @@
 import React from 'react'
 import { AppBar, Box, CssBaseline, LinearProgress, Tab, Tabs, Toolbar, Typography } from '@mui/material'
-import { QueryClientProvider, useQuery } from '@tanstack/react-query'
+import { QueryClientProvider, useQuery, useIsFetching } from '@tanstack/react-query'
 import { queryClient } from './lib/query'
 import Overview from './pages/Overview'
 import Documents from './pages/Documents'
@@ -39,7 +39,7 @@ const Footer: React.FC = () => {
 
 const App: React.FC = () => {
   const [tab, setTab] = React.useState(0)
-  const [loadingTop, setLoadingTop] = React.useState(false)
+  const isFetchingAny = useIsFetching() > 0
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -71,7 +71,7 @@ const App: React.FC = () => {
                 <Tab label="Providers" {...a11yProps(5)} sx={{ color: '#F1A501' }} />
               </Tabs>
             </Toolbar>
-            {loadingTop && <LinearProgress color="secondary" />}
+            {isFetchingAny && <LinearProgress color="secondary" />}
           </AppBar>
           <Box sx={{ p: 2, flex: 1 }}>
             <ErrorBoundary>
