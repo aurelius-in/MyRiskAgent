@@ -35,7 +35,7 @@ const Providers: React.FC = () => {
   const [industry, setIndustry] = React.useState('')
   const [region, setRegion] = React.useState('')
   const industryOptions = React.useMemo(() => Array.from(new Set((data?.providers || []).map(p => p.industry).filter(Boolean))) as string[], [data])
-  const regionOptions = React.useMemo(() => Array.from(new Set((data?.providers || [].map(p => p.region)).filter(Boolean))) as string[], [data])
+  const regionOptions = React.useMemo(() => Array.from(new Set((data?.providers || []).map(p => p.region).filter(Boolean))) as string[], [data])
 
   const handleSort = (key: keyof ProviderRow) => {
     if (orderBy === key) {
