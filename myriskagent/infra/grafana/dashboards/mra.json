@@ -36,6 +36,14 @@
         { "expr": "sum by (le) (rate(mra_request_latency_seconds_bucket[5m]))" }
       ],
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 20 }
+    },
+    {
+      "type": "stat",
+      "title": "P95 Latency (s)",
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum by (le) (rate(mra_request_latency_seconds_bucket[5m])))" }
+      ],
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 28 }
     }
   ],
   "schemaVersion": 38,

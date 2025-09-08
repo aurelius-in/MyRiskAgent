@@ -39,7 +39,7 @@ const ProviderDetailDialog: React.FC<Props> = ({ open, onClose, detail }) => {
           <Chip label={`Total ${detail?.total?.toFixed(2) ?? '0.00'}`} sx={{ bgcolor: '#111', border: '1px solid #B30700', color: '#F1A501' }} />
           <Chip label={`Avg ${detail?.avg?.toFixed(2) ?? '0.00'}`} sx={{ bgcolor: '#111', border: '1px solid #B30700', color: '#F1A501' }} />
         </Stack>
-        <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
           <Button onClick={async () => {
             const resp = await fetch(`/api/evidence/download/provider/${detail?.provider_id}/${detail?.org_id ?? ''}`)
             if (!resp.ok) return
@@ -53,6 +53,21 @@ const ProviderDetailDialog: React.FC<Props> = ({ open, onClose, detail }) => {
             document.body.removeChild(a)
             URL.revokeObjectURL(url)
           }}>Download Evidence ZIP</Button>
+          <Button onClick={async () => {
+            if (!detail) return
+            const header = 'date,amount\n'
+            const rows = (detail.series || []).map(s => `${s.date},${s.amount}`).join('\n')
+            const csv = header + rows + (rows ? '\n' : '')
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `provider_${detail.provider_id}_series.csv`
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            URL.revokeObjectURL(url)
+          }}>Export CSV</Button>
         </Box>
         <ReactECharts option={option} style={{ height: 240 }} />
       </DialogContent>
