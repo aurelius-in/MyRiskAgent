@@ -216,8 +216,12 @@ async def ingest_external(req: IngestExternalRequest):
     return {"registered": True, "source": req.model_dump()}
 
 
+class RecomputeRequest(BaseModel):
+    params: Optional[dict[str, float]] = None
+
+
 @app.post("/risk/recompute/{org_id}/{period}")
-async def risk_recompute(org_id: int, period: str):
+async def risk_recompute(org_id: int, period: str, req: Optional[RecomputeRequest] = None):
     tracer = get_tracer("risk")
     with tracer.start_as_current_span("build_features"):
         rng = np.random.default_rng(42)
@@ -226,11 +230,25 @@ async def risk_recompute(org_id: int, period: str):
         features = pd.DataFrame(base + trend, columns=[f"f{i}" for i in range(6)])
     with tracer.start_as_current_span("compute_scores"):
         fam = compute_family_scores(features)
-        combined_score, combined_conf = combine_scores(fam)
+
+    # Optional what-if weights
+    alpha = (req.params.get("alpha") if (req and req.params) else 1.0) or 1.0
+    beta = (req.params.get("beta") if (req and req.params) else 1.0) or 1.0
+    gamma = (req.params.get("gamma") if (req and req.params) else 1.0) or 1.0
+    # delta reserved for future use
+
+    # Reweight families before combining
+    rew_fam = {
+        "Financial Health Risk": (float(fam["Financial Health Risk"][0]) * float(alpha), float(fam["Financial Health Risk"][1])),
+        "Compliance and Reputation Risk": (float(fam["Compliance and Reputation Risk"][0]) * float(beta), float(fam["Compliance and Reputation Risk"][1])),
+        "Operational and Outlier Risk": (float(fam["Operational and Outlier Risk"][0]) * float(gamma), float(fam["Operational and Outlier Risk"][1])),
+    }
+    combined_score, combined_conf = combine_scores(rew_fam)
+
     scores = {
-        "Financial Health Risk": {"score": float(fam["Financial Health Risk"][0]), "confidence": float(fam["Financial Health Risk"][1])},
-        "Compliance and Reputation Risk": {"score": float(fam["Compliance and Reputation Risk"][0]), "confidence": float(fam["Compliance and Reputation Risk"][1])},
-        "Operational and Outlier Risk": {"score": float(fam["Operational and Outlier Risk"][0]), "confidence": float(fam["Operational and Outlier Risk"][1])},
+        "Financial Health Risk": {"score": float(rew_fam["Financial Health Risk"][0]), "confidence": float(rew_fam["Financial Health Risk"][1])},
+        "Compliance and Reputation Risk": {"score": float(rew_fam["Compliance and Reputation Risk"][0]), "confidence": float(rew_fam["Compliance and Reputation Risk"][1])},
+        "Operational and Outlier Risk": {"score": float(rew_fam["Operational and Outlier Risk"][0]), "confidence": float(rew_fam["Operational and Outlier Risk"][1])},
         "Combined Index": {"score": float(combined_score), "confidence": float(combined_conf)},
     }
     return {"org_id": org_id, "period": period, "scores": scores}
@@ -328,6 +346,44 @@ async def provider_detail(provider_id: int, org_id: int = Query(...)):
         except Exception:
             pass
     return {"provider_id": provider_id, "org_id": org_id, "count": count, "total": total, "avg": avg, "series": series}
+
+
+@app.get("/providers")
+async def list_providers(org_id: int = Query(...)):
+    df = CLAIMS_BY_ORG.get(org_id)
+    if df is None or df.empty:
+        return {"org_id": org_id, "providers": []}
+    # Aggregate per provider
+    agg = (
+        df.groupby("provider_id")
+        .agg(
+            total_amount=("claim_amount", "sum"),
+            avg_amount=("claim_amount", "mean"),
+            n_claims=("claim_amount", "count"),
+        )
+        .reset_index()
+    )
+    # Attach industry/region if columns exist by taking the first non-null
+    if "industry" in df.columns:
+        ind = df.dropna(subset=["industry"]).groupby("provider_id")["industry"].first().reset_index()
+        agg = agg.merge(ind, on="provider_id", how="left")
+    if "region" in df.columns:
+        reg = df.dropna(subset=["region"]).groupby("provider_id")["region"].first().reset_index()
+        agg = agg.merge(reg, on="provider_id", how="left")
+    providers = []
+    for _, row in agg.iterrows():
+        providers.append(
+            {
+                "provider_id": int(row["provider_id"]),
+                "total_amount": float(row["total_amount"]),
+                "avg_amount": float(row["avg_amount"]),
+                "n_claims": int(row["n_claims"]),
+                "industry": (row.get("industry") if isinstance(row.get("industry"), str) else None),
+                "region": (row.get("region") if isinstance(row.get("region"), str) else None),
+            }
+        )
+    providers = sorted(providers, key=lambda x: x["total_amount"], reverse=True)[:100]
+    return {"org_id": org_id, "providers": providers}
 
 
 @app.get("/docs/search")

@@ -4,13 +4,15 @@ import { useQuery } from '@tanstack/react-query'
 import { apiGet } from '../lib/api'
 import RiskWaterfall, { WaterfallItem } from '../components/RiskWaterfall'
 import SkeletonBlock from '../components/SkeletonBlock'
+import { useOrg } from '../context/OrgContext'
 
 interface DriversResp { drivers: { name: string; value: number }[]; rationales?: string[] }
 
 const Drivers: React.FC = () => {
+  const { orgId } = useOrg()
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['drivers', 1, 'latest'],
-    queryFn: async () => apiGet<DriversResp>('/api/risk/drivers/1/latest'),
+    queryKey: ['drivers', orgId, 'latest'],
+    queryFn: async () => apiGet<DriversResp>(`/api/risk/drivers/${orgId}/latest`),
     staleTime: 15_000,
   })
 
