@@ -1,0 +1,96 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: mra-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASS:-postgres}
+      POSTGRES_DB: ${DB_NAME:-myriskagent}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Optionally initialize pgvector extension automatically on fresh DB
+      # - ./infra/init/00_create_vector.sql:/docker-entrypoint-initdb.d/00_create_vector.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-myriskagent}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - mra-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: mra-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - mra-net
+
+  api:
+    image: python:3.11-slim
+    container_name: mra-api
+    working_dir: /app
+    command: bash -lc "pip install --no-cache-dir -r /app/requirements.txt && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASS: ${DB_PASS:-postgres}
+      DB_NAME: ${DB_NAME:-myriskagent}
+      REDIS_URL: redis://redis:6379/0
+      VECTOR_BACKEND: ${VECTOR_BACKEND:-pgvector}
+      OBJECT_STORE_URI: ${OBJECT_STORE_URI:-file:///data}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      NEWSAPI_KEY: ${NEWSAPI_KEY:-}
+      ALPHAVANTAGE_KEY: ${ALPHAVANTAGE_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      - ../api:/app
+      - mra-data:/data
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - mra-net
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: mra-prometheus
+    command: --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    networks:
+      - mra-net
+
+  grafana:
+    image: grafana/grafana:10.4.5
+    container_name: mra-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    networks:
+      - mra-net
+
+volumes:
+  pgdata:
+  grafana-storage:
+  mra-data:
+
+networks:
+  mra-net:
+    driver: bridge
