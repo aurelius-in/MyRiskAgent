@@ -1,31 +1,47 @@
 import React from 'react'
-import { Box, Typography, List, ListItem, ListItemText, Paper } from '@mui/material'
+import { Box, Typography, List, ListItem, ListItemText, Paper, Divider } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { apiGet } from '../lib/api'
-
-interface ScoresResp { scores: { entity?: string; family?: string; score?: number }[] }
+import SkeletonBlock from '../components/SkeletonBlock'
+import OutliersTable from '../components/OutliersTable'
+import type { ScoresListResp, OutliersResp } from '../lib/types'
 
 const Scores: React.FC = () => {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['scores', 1, 'latest'],
-    queryFn: async () => apiGet<ScoresResp>('/api/scores/1/latest'),
+    queryFn: async () => apiGet<ScoresListResp>('/api/scores/1/latest'),
+  })
+
+  const outliers = useQuery({
+    queryKey: ['outliers', 1, 'latest'],
+    queryFn: async () => apiGet<OutliersResp>('/api/outliers/providers?org_id=1&period=latest'),
   })
 
   return (
     <Box>
       <Typography variant="h4" gutterBottom>Scores</Typography>
+      <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700', mb: 2 }}>
+        {isLoading && <SkeletonBlock height={100} />}
+        {isError && <div style={{ color: '#B30700', padding: 8 }}>Failed to load scores.</div>}
+        {!isLoading && !isError && (
+          <List>
+            {(data?.scores || []).map((s, idx) => (
+              <ListItem key={idx}>
+                <ListItemText primary={`${s.entity ?? 'Org'} - ${s.family ?? 'Family'}: ${s.score ?? ''}`} sx={{ color: '#F1A501' }} />
+              </ListItem>
+            ))}
+            {(!data?.scores || data.scores.length === 0) && (
+              <ListItem><ListItemText primary="No scores yet." sx={{ color: '#F1A501' }} /></ListItem>
+            )}
+          </List>
+        )}
+      </Paper>
+
+      <Typography variant="h5" gutterBottom>Provider Outliers</Typography>
       <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700' }}>
-        <List>
-          {isLoading && <ListItem><ListItemText primary="Loading..." sx={{ color: '#F1A501' }} /></ListItem>}
-          {!isLoading && (data?.scores || []).map((s, idx) => (
-            <ListItem key={idx}>
-              <ListItemText primary={`${s.entity ?? 'Org'} - ${s.family ?? 'Family'}: ${s.score ?? ''}`} sx={{ color: '#F1A501' }} />
-            </ListItem>
-          ))}
-          {!isLoading && (!data?.scores || data.scores.length === 0) && (
-            <ListItem><ListItemText primary="No scores yet." sx={{ color: '#F1A501' }} /></ListItem>
-          )}
-        </List>
+        {outliers.isLoading && <SkeletonBlock height={160} />}
+        {outliers.isError && <div style={{ color: '#B30700', padding: 8 }}>Failed to load outliers.</div>}
+        {!outliers.isLoading && !outliers.isError && <OutliersTable rows={outliers.data?.providers || []} />}
       </Paper>
     </Box>
   )

@@ -22,3 +22,4 @@ tiktoken
 openai
 tenacity
 httpx
+prometheus-client
