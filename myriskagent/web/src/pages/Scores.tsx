@@ -1,10 +1,11 @@
 import React from 'react'
-import { Box, Typography, List, ListItem, ListItemText, Paper, Divider } from '@mui/material'
+import { Box, Typography, List, ListItem, ListItemText, Paper, Divider, Button } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { apiGet } from '../lib/api'
 import SkeletonBlock from '../components/SkeletonBlock'
 import OutliersTable from '../components/OutliersTable'
 import type { ScoresListResp, OutliersResp } from '../lib/types'
+import { exportToCsv } from '../lib/csv'
 
 const Scores: React.FC = () => {
   const { data, isLoading, isError } = useQuery({
@@ -16,6 +17,10 @@ const Scores: React.FC = () => {
     queryKey: ['outliers', 1, 'latest'],
     queryFn: async () => apiGet<OutliersResp>('/api/outliers/providers?org_id=1&period=latest'),
   })
+
+  const exportOutliers = () => {
+    exportToCsv('provider_outliers.csv', (outliers.data?.providers || []) as any)
+  }
 
   return (
     <Box>
@@ -37,7 +42,10 @@ const Scores: React.FC = () => {
         )}
       </Paper>
 
-      <Typography variant="h5" gutterBottom>Provider Outliers</Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+        <Typography variant="h5" gutterBottom>Provider Outliers</Typography>
+        <Button variant="outlined" onClick={exportOutliers} disabled={outliers.isLoading} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Export CSV</Button>
+      </Box>
       <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700' }}>
         {outliers.isLoading && <SkeletonBlock height={160} />}
         {outliers.isError && <div style={{ color: '#B30700', padding: 8 }}>Failed to load outliers.</div>}
