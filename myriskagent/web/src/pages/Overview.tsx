@@ -82,7 +82,7 @@ const Overview: React.FC = () => {
             </Paper>
           </Grid>
           <Grid item xs={12} md={6}>
-            <Paper sx={{ p: 2, bgcolor: '#111', border: '1px solid '#B30700' }}>
+            <Paper sx={{ p: 2, bgcolor: '#111', border: '1px solid #B30700' }}>
               <Typography variant="h6" sx={{ color: '#F1A501', fontFamily: 'Special Elite, serif' }}>Family Scores</Typography>
               <Box sx={{ display: 'flex', gap: 2 }}>
                 <RiskGauge label="Financial" value={fin} />

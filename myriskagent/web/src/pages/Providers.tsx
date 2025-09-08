@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { apiGet } from '../lib/api'
 import { useOrg } from '../context/OrgContext'
 import SkeletonBlock from '../components/SkeletonBlock'
+import ProviderDetailDialog from '../components/ProviderDetailDialog'
 
 interface ProviderRow {
   provider_id: number
@@ -55,6 +56,14 @@ const Providers: React.FC = () => {
     return sorted
   }, [data, orderBy, order, industry, region])
 
+  const [detailOpen, setDetailOpen] = React.useState(false)
+  const [detail, setDetail] = React.useState<any>(null)
+  const openDetail = async (providerId: number) => {
+    const d = await apiGet(`/api/providers/${providerId}/detail?org_id=${orgId}`)
+    setDetail(d)
+    setDetailOpen(true)
+  }
+
   return (
     <Box>
       <Typography variant="h4" gutterBottom>Providers</Typography>
@@ -87,7 +96,7 @@ const Providers: React.FC = () => {
             </TableHead>
             <TableBody>
               {rows.map(r => (
-                <TableRow key={r.provider_id}>
+                <TableRow key={r.provider_id} hover style={{ cursor: 'pointer' }} onClick={() => openDetail(r.provider_id)}>
                   <TableCell sx={{ color: '#F1A501' }}>{r.provider_id}</TableCell>
                   <TableCell sx={{ color: '#F1A501' }} align="right">{r.total_amount.toFixed(2)}</TableCell>
                   <TableCell sx={{ color: '#F1A501' }} align="right">{r.avg_amount.toFixed(2)}</TableCell>
@@ -100,6 +109,7 @@ const Providers: React.FC = () => {
           </Table>
         )}
       </Paper>
+      <ProviderDetailDialog open={detailOpen} onClose={() => setDetailOpen(false)} detail={detail || undefined} />
     </Box>
   )
 }
