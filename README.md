@@ -1,265 +1,191 @@
+Awesome. Here’s an **updated README.md** you can drop in now. It keeps everything strong from the last version and adds what you asked for: multi-source online intelligence, risk-score families, “Ask MyRiskAgent,” agent roster, design system (fonts/colors), and options for orgs to upload their own data.
+
+---
+
 # MyRiskAgent
 
-**Production-grade agentic risk analysis platform** that ingests claims, filings, and open-source signals to compute provider- and company-level risk with peer-normalized outlier detection and evidence-rich explanations. Built for real workloads: FastAPI, Postgres/pgvector, DuckDB, Redis, and LangGraph-style agent orchestration.
+**Agentic risk analysis platform** that ingests claims, filings, finance data, news, and OSINT to compute provider and company risk with peer-normalized outlier detection and evidence-rich explanations. Built for production workloads on FastAPI, Postgres/pgvector, DuckDB, Redis, and LangGraph-style orchestration. GPT-5 summarizes findings into executive briefs and full reports with citations.
 
-> Outcomes first: faster investigations, fewer false positives, and “show me the receipts” evidence packs for every score.
+> Faster investigations, fewer false positives, and “show me the receipts” evidence packs for every score.
 
 ---
 
 ## Why it’s different
 
-* **Agentic workflow**: specialized agents fetch filings/news, compute outliers, and draft exec-ready briefs with citations.
-* **Defensible math**: robust peer normalization, anomaly ensemble, trend shift detection, and SHAP explanations.
-* **Evidence on tap**: one click to export the exact rows, codes, and plots that drove a score.
-* **Operates at enterprise scale**: streaming ingestion, cached features, vector search for documents, and full tracing.
-* **Governed by design**: OPA/Rego policies, PHI guards, immutable audit trails, and reproducible runs.
+* **Agentic workflow** that searches the public web and your permitted data, then drafts reports with sources.
+* **Defensible math** with robust peer normalization, anomaly ensembles, trend shift detection, and SHAP explanations.
+* **Evidence on tap** with the exact rows, codes, timelines, and plots that drove a score.
+* **Enterprise posture** with tracing, governance policies, and reproducible runs.
 
 ---
 
-## Architecture at a glance
+## Design system
 
-```
-                 ┌──────────────────────────┐
- Raw Sources ───▶│ Ingest (FastAPI workers) │──▶ Object Store (S3/Azure)
-  • Claims CSV   └──────────┬───────────────┘
-  • EDI/Parquet              │                         ┌──────────────┐
-  • SEC 10-K/8-K             │ Features + Scores       │   Grafana    │
-  • News/OSINT               ▼                         │ + Prometheus │
-                     ┌───────────────────┐             └──────┬───────┘
-                     │   Feature Store   │◀──DuckDB/SQL───┐   │
-                     │ Postgres (+jsonb) │                │   │ OpenTelemetry
-                     └────────┬──────────┘                │   │ LangSmith
-                              │                           │   │
-                        pgvector (docs)                   │   │
-                              │                           │   │
-                              ▼                           │   │
-                  ┌────────────────────┐                  │   │
-                  │  Risk Engine (Py) │◀── Redis Queue ──┘   │
-                  │  IForest, LOF,    │
-                  │  STL trend, SHAP  │
-                  └─────────┬─────────┘
-                            │ REST/JSON
-                            ▼
-                     ┌───────────────┐
-                     │   Web (React) │
-                     │  MUI + ECharts│
-                     └───────┬───────┘
-                             │
-                             ▼
-                        End Users
-```
+* **Colors:**
+
+  * Primary Red `#B30700`
+  * Accent Yellow `#F1A501`
+  * Background Black `#000000`
+* **Typography:**
+
+  * Headings use an aged typewriter look (recommend Google font **Special Elite** or **IM Fell English** as a stand-in for “aged typeface”).
+  * Body copy and UI controls use **Century Gothic** (fallback: `CenturyGothic, AppleGothic, Arial, sans-serif`).
+* **Brand wordmark:** My and Agent set in sans-serif. Risk set in a bold aged typewriter face.
+* **CSS tokens:**
+
+  ```css
+  :root{
+    --mra-red:#B30700; --mra-yellow:#F1A501; --mra-black:#000000;
+    --font-heading:"Special Elite", "IM Fell English", "Courier New", monospace;
+    --font-body:"Century Gothic","AppleGothic","Arial",sans-serif;
+  }
+  body{ background:#000; color:#fff; font-family:var(--font-body); }
+  h1,h2,h3{ font-family:var(--font-heading); color:var(--mra-yellow); }
+  .cta{ background:var(--mra-red); color:#000; }
+  a{ color:var(--mra-yellow); }
+  ```
 
 ---
 
-## Core capabilities
+## Data sources
 
-* **Provider Outlier Scores** (0–100) with top drivers, peer deltas, and time-series shifts.
-* **Company Roll-ups** by line of business, specialty, and region.
-* **What-if Controls** to tune weights and cohorts, updating scores and waterfalls instantly.
-* **Document Intelligence** pulls risk-relevant snippets from 10-K/8-K and recent news, searchable via embeddings.
-* **Evidence Packs** (ZIP): dataset hashes, parameters, SHAP summaries, CSV slices, and plots, signed for integrity.
+No proprietary data is required. Public and online sources are supported out of the box. Your organization can optionally upload its own data to improve accuracy.
 
----
+**Public web and datasets**
 
-## Risk scoring (concise spec)
+* **Filings:** SEC EDGAR 10-K, 10-Q, 8-K.
+* **Finance:** Yahoo Finance style endpoints via `yfinance` or equivalent, Alpha Vantage, Stooq.
+* **News:** GDELT 2.1, News API, Common Crawl based feeds.
+* **Knowledge bases:** Wikipedia, Wikidata.
+* **Sanctions and enforcement:** OFAC SDN, OpenSanctions, HHS OIG exclusions.
+* **Healthcare sample:** Medicare Provider Utilization and Payment Data PUF for provider outlier prototypes.
+* **Social signals:** X via snscrape or authorized APIs, Reddit API, YouTube Data API, public RSS, company blogs.
 
-### Features per provider, per period
+**Your optional data**
 
-* **Volume/Intensity**: claim counts, allowed/paid, RVUs per CPT, units/visit.
-* **Coding Mix**: CPT/HCPCS distributions, modifiers, place of service, upcoding indicators.
-* **Financial**: reimbursement per CPT, denial/refund/recoup patterns.
-* **Peer Context**: same specialty + region + payer mix.
-* **Drift/Trend**: MoM deltas, seasonal residuals, change-points.
-
-### Peer-robust normalization
-
-For feature $x$, with peer median and MAD:
-
-$$
-z = \frac{x - \text{median}}{1.4826(\text{MAD} + \epsilon)} \quad \text{(clip } |z| \le 10\text{)}
-$$
-
-### Anomaly ensemble
-
-* IsolationForest score $a_{iso}$
-* Local Outlier Factor score $a_{lof}$
-* Top-K deviation $d$ = mean of largest $|z|$ across fraud-relevant features
-* Trend spike score $t$ from STL residuals / change-points
-
-### Risk score (0–100)
-
-$$
-S = 100 \cdot \sigma\big( \alpha a_{iso} + \beta a_{lof} + \gamma \tfrac{d}{10} + \delta t \big)
-$$
-
-Default weights: $\alpha=.35,\ \beta=.15,\ \gamma=.35,\ \delta=.15$. Exposed in the UI, learnable with labeled data.
-
-### Company aggregation
-
-$$
-S_{\text{company}} = \sum_i w_i S_i \quad \text{with } w_i \propto \text{exposure} \ (\text{paid},\ \text{member-months},\ \ldots)
-$$
-
-### Explainability
-
-* Global and local **SHAP** values; plain-English rationales (“99214 usage 3.1× peer median; +12.4 to risk”).
-* Evidence pack for each score.
+* Claims or billing history CSV or Parquet.
+* Policy exceptions, incidents, audit flags.
+* Customer tickets, escalation logs.
 
 ---
 
-## Agents (LangGraph-style)
+## Risk score families
 
-* **OSINTAgent**: recent news, sanctions, enforcement actions → embeddings + citations.
-* **FilingsAgent**: 10-K/10-Q/8-K sections, KPIs, compliance highlights.
-* **ProviderOutlierAgent**: orchestrates feature builds, ensemble scoring, and evidence packs.
-* **NarratorAgent**: exec brief: “what changed, why, actions to take,” with linked sources.
-* **ComplianceAgent**: OPA-enforced PHI rules, access scopes, redaction, export limits.
+Three score families compute percent risk on 0 to 100 scale. 100 means do not engage. 0 means risk free which does not exist in real life.
 
----
+1. **Financial Health Risk**
+   Liquidity stress, leverage, revenue volatility, abrupt margin changes, filings sentiment.
 
-## Tech stack
+2. **Compliance and Reputation Risk**
+   Sanctions, enforcement, lawsuit mentions, adverse media, social sentiment spikes, governance red flags.
 
-* **Backend**: Python 3.11+, FastAPI, Pydantic, Uvicorn, SQLModel/SQLAlchemy
-* **ML**: scikit-learn, statsmodels (STL), shap, numpy/pandas
-* **Storage**: Postgres 15 (+jsonb, +pgvector), DuckDB, Redis
-* **Docs/Vector**: pgvector or Chroma (optional)
-* **Frontend**: React + TypeScript, MUI, TanStack Query, ECharts
-* **Ops**: Docker Compose, OpenTelemetry, LangSmith (traces), Prometheus/Grafana, OPA/Rego
+3. **Operational and Outlier Risk**
+   Provider or unit level anomalies, volume and coding outliers, sudden pattern shifts, SLA breaches.
 
----
+Optional specialized score:
 
-## Quick start
+* **Provider Billing Outlier Risk** when healthcare data is available.
 
-### Prereqs
-
-* Docker + Docker Compose
-* Python 3.11+ and Node 20+ (if running without containers)
-
-### Clone
-
-```bash
-git clone https://github.com/<you>/MyRiskAgent.git
-cd MyRiskAgent
-```
-
-### Configure environment
-
-Create `.env` at repo root:
-
-```env
-# Postgres
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=myrisk
-DB_PASS=myrisk
-DB_NAME=myrisk
-
-# Redis
-REDIS_URL=redis://localhost:6379/0
-
-# Object store (local/minio or Azure/AWS)
-OBJECT_STORE_URI=file:///data/artifacts
-# e.g. s3://bucket/prefix or az://container/prefix
-
-# Tracing (optional)
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
-LANGSMITH_API_KEY=
-```
-
-### Bring up infrastructure
-
-```bash
-docker compose up -d
-# services: postgres, redis, grafana, prometheus, (optional) minio
-```
-
-### Initialize DB and sample data
-
-```bash
-# from repo root
-make migrate         # or: alembic upgrade head
-make seed-sample     # loads data/samples/claims_small.parquet
-```
-
-### Run the API
-
-```bash
-# with Python locally
-cd api
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-```
-
-### Run the web app
-
-```bash
-cd web
-pnpm install
-pnpm dev  # http://localhost:5173 (proxy to :8000 for /api)
-```
+**Final profile** contains each score, confidence, drivers, and a combined **Engagement Index**.
 
 ---
 
-## API surface (initial)
+## Scoring method overview
+
+* For each feature $x$, compute peer median and MAD within a cohort and produce robust $z$ scores
+  $z = (x - \text{median}) / (1.4826\cdot(\text{MAD}+\epsilon))$ with clipping.
+* Build an anomaly ensemble with IsolationForest, Local Outlier Factor, top-K deviation of $|z|$, and a trend spike score using STL and change-point detection.
+* Online signals get **recency decay** $w_t = \exp(-\lambda \Delta t)$ and source credibility weights.
+* Per family score $S_f = \sigma(\alpha a_{iso} + \beta a_{lof} + \gamma d + \delta t + \eta c_{online}) \times 100$.
+* Combine families into a profile with exposure weights, then write all components to the evidence pack.
+
+---
+
+## Ask MyRiskAgent
+
+A natural language surface that answers questions about any company using online sources and your optional data.
+
+* Query routing chooses tools based on intent.
+* Retrieval pulls facts and documents from the vector store and structured tables.
+* GPT-5 writes a cited answer, an executive brief, or a full report.
+* Everything includes links to sources and artifacts.
+
+Example prompt shown in the app:
+
+> **Ask MyRiskAgent** a question about risk. MyRiskAgent will search filings, finance, news, OSINT, Wikipedia, social activity, and your permitted internal data to answer. You can also search by company name or risk type.
+
+---
+
+## Agent graph
+
+All agents run under policy guardrails and are fully traced.
+
+* **FilingsAgent**
+  Ingests SEC filings, extracts risk sections, MD\&A, liquidity notes, and builds KPIs.
+
+* **FinanceAgent**
+  Fetches prices, returns, volatility, distress indicators, and calculates financial features.
+
+* **NewsAgent**
+  Searches GDELT or News API, clusters events, de-duplicates, and scores sentiment and severity.
+
+* **SocialAgent**
+  Pulls public social mentions through approved endpoints, detects spikes and anomalies.
+
+* **SanctionsAgent**
+  Checks OFAC, OpenSanctions, and HHS OIG for entity and affiliate matches.
+
+* **WikipediaAgent**
+  Pulls infobox and history with change detection. Cross-links to filings and news.
+
+* **ProviderOutlierAgent**
+  Builds features from claims or billing data, runs anomaly ensemble, and prepares SHAP explanations.
+
+* **NarratorAgent**
+  Uses GPT-5 to draft an **Executive Brief** or **Full Report** with citations and score explanations.
+
+* **QAAssistantAgent**
+  Powers the “Ask” box, returns cited answers with quick charts.
+
+* **ComplianceAgent**
+  Applies OPA policies, PHI redaction, rate limits, and export controls.
+
+* **EvidenceAgent**
+  Packages CSV slices, score components, SHAP plots, parameters, and dataset hashes into a signed ZIP.
+
+---
+
+## Frontend
+
+* React with TypeScript and MUI.
+* Headings set in aged typewriter font, body set in Century Gothic.
+* Color tokens from the design system above.
+* Tabs: Overview, Scores, Drivers, Documents, Q\&A.
+* What-if panel to adjust weights and cohorts.
+* Export buttons for Executive Brief and Full Report.
+
+---
+
+## API surface
 
 ```
-POST   /ingest/claims                  # Upload CSV/Parquet of claims
-POST   /risk/recompute/{org_id}/{prd}  # Rebuild features, recompute scores
-GET    /providers/{provider_id}/score/{prd}
-GET    /orgs/{org_id}/summary/{prd}
-GET    /orgs/{org_id}/outliers?prd=...&limit=100
-GET    /evidence/{entity_type}/{id}/{prd}   # signed ZIP of evidence
-GET    /docs/search?q=...                   # filings/news semantic search
+POST /ingest/claims
+POST /ingest/external           # register RSS, GDELT, SEC, Finance sources
+POST /risk/recompute/{org_id}/{period}
+GET  /scores/{org_id}/{period}  # returns all family scores + combined index
+GET  /outliers/providers?org_id=...&period=...
+GET  /docs/search?q=...&org_id=...
+POST /ask                       # {org_id?, question} -> cited answer
+GET  /evidence/{entity}/{id}/{period}
 ```
 
-Example response:
+**Ask payload**
 
 ```json
-{
-  "entity_type": "provider",
-  "entity_id": "f1b2e3...",
-  "period": "2025-06",
-  "score": 82.4,
-  "components": {"iso": 0.77, "lof": 0.32, "topk": 0.68, "trend": 0.19},
-  "top_contributors": [
-    {"feature":"CPT_99214_rate","effect":12.4,"rationale":"3.1× peer median"},
-    {"feature":"units_per_visit","effect":7.9,"rationale":"+2.4σ vs cohort"}
-  ],
-  "evidence_uri": "s3://.../evidence/provider/f1b2e3/2025-06.zip"
+{ "question":"What changed in ACME's risk last quarter?",
+  "org_id":"optional-guid",
+  "scope":["filings","finance","news","social","sanctions","internal"]
 }
-```
-
----
-
-## Minimal schema (Postgres)
-
-```sql
-create table providers (
-  provider_id uuid primary key,
-  npi text, name text, specialty text, region text, org_id uuid
-);
-
-create table claims (
-  claim_id uuid primary key,
-  provider_id uuid references providers(provider_id),
-  service_date date,
-  cpt text, modifier text,
-  allowed numeric, paid numeric, units int,
-  place_of_service text, payer text
-);
-
-create table provider_features (
-  provider_id uuid, period date, feature jsonb,
-  primary key (provider_id, period)
-);
-
-create table risk_scores (
-  entity_type text, entity_id uuid, period date,
-  score numeric, components jsonb, weights jsonb,
-  evidence_uri text, model_version text,
-  created_at timestamptz default now(),
-  primary key (entity_type, entity_id, period)
-);
 ```
 
 ---
@@ -270,16 +196,19 @@ create table risk_scores (
 myriskagent/
   api/
     app/main.py
-    app/risk/engine.py
+    app/agents/        # filings.py, finance.py, news.py, social.py, sanctions.py, wiki.py, narrator.py, qa.py, provider_outlier.py, evidence.py
+    app/risk/engine.py # ensemble scoring
     app/risk/explain.py
+    app/search/        # vector store + keyword
     app/storage/
     tests/
   web/
     src/
+      app/
       components/
-      features/risk/
+      features/
       lib/api.ts
-    vite.config.ts
+      styles/design.css
   infra/
     docker-compose.yml
     opa/policies.rego
@@ -291,48 +220,51 @@ myriskagent/
 
 ---
 
-## Operations, governance, and trust
+## Quick start
 
-* **Auditability**: every score links to its dataset hashes, parameters, seed, and SHAP summary. Evidence ZIPs are signed.
-* **OPA/Rego**: enforce PHI access scopes, redaction, and export controls in the API gateway.
-* **Observability**: OpenTelemetry spans around agent/tool calls and risk pipeline stages; Grafana dashboards for latency, throughput, and queue depth.
-* **Reproducibility**: deterministic seeds, pinned versions, and snapshotting of inputs to object storage.
+See existing steps for Docker, environment, seeding, and running both API and web.
+To enable public data fetchers, set API keys where required and configure allowed sources.
+
+`.env` additions:
+
+```env
+# News and finance
+NEWSAPI_KEY=
+ALPHAVANTAGE_KEY=
+GDELT_BASE=https://api.gdeltproject.org/api/v2
+
+# Vector store or pgvector
+VECTOR_BACKEND=pgvector
+```
+
+---
+
+## Reports
+
+* **Executive Brief**
+  One page with scores, trend, top five risks, and recommended actions.
+
+* **Full Report**
+  Detailed write-up with score drivers, SHAP plots, peer boxplots, and cited sources. Download as PDF or HTML.
+
+---
+
+## Operations and trust
+
+* Immutable audit log with dataset hashes and parameter snapshots.
+* OPA policies for PHI and export control.
+* OpenTelemetry traces across agents and pipelines.
+* Reproducible runs with deterministic seeds.
 
 ---
 
 ## Roadmap
 
-* [ ] **MVP**: ingestion → feature build → ensemble score → Outliers table + gauge/waterfall
-* [ ] **Explainability**: SHAP visualizations, downloadable evidence packs
-* [ ] **Documents**: filings/news ingestion, semantic search, side-by-side highlights
-* [ ] **What-if**: live weight/cohort sliders with cached recomputes
-* [ ] **Hardening**: OPA policies, structured logs, rate limits, perf on 10–50M rows
-* [ ] **Packaging**: Helm charts, Terraform examples, cloud object stores
+* Connectors for more filings outside the US.
+* Higher quality event deduplication with cross-document coreference.
+* Active learning loop to refine weights using analyst feedback.
+* Scheduled recomputes and monthly rollups.
 
 ---
 
-## Development notes
-
-* Prefer **DuckDB** for fast intermediate aggregates; persist golden features to Postgres.
-* Keep **feature registry** explicit (names, types, cohorts) to stabilize SHAP attributions.
-* Use **batch + incremental** strategies: nightly full recompute with streaming deltas during the day.
-* Treat **peer cohort selection** as a first-class input (specialty, region, payer mix, time window).
-
----
-
-## Security
-
-* Designed for PHI: strict table-level and row-level access, encryption at rest, OPA-guarded exports.
-* No public endpoints by default; all services are private/network-restricted.
-
----
-
-## License
-
-MIT (placeholder). See `LICENSE`.
-
----
-
-## Contact
-
-Oliver A. Ellison • [oliveraellison@gmail.com](mailto:oliveraellison@gmail.com) • LinkedIn: [https://www.linkedin.com/in/oellison/](https://www.linkedin.com/in/oellison/)
+If you want, I can now write a **Cursor task plan** that scaffolds the agents, routes, UI pages, and design tokens exactly to this spec.
