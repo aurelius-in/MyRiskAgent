@@ -2,6 +2,8 @@ import React from 'react'
 import { Dialog, DialogTitle, DialogContent, IconButton, Typography, Stack, Chip, Button, Box } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import ReactECharts from 'echarts-for-react'
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 
 interface ProviderDetail {
   provider_id: number
@@ -76,6 +78,28 @@ const ProviderDetailDialog: React.FC<Props> = ({ open, onClose, detail }) => {
           }}>Export CSV</Button>
         </Box>
         <ReactECharts option={option} style={{ height: 240 }} />
+        {(() => {
+          const s = detail?.series || []
+          if (s.length < 2) return null
+          const diffs = [] as { idx: number; from: string; to: string; delta: number }[]
+          for (let i = 1; i < s.length; i++) {
+            diffs.push({ idx: i, from: s[i-1].date, to: s[i].date, delta: s[i].amount - s[i-1].amount })
+          }
+          const top = diffs.sort((a,b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 3)
+          return (
+            <Box sx={{ mt: 1 }}>
+              <Typography sx={{ color: '#F1A501', mb: 0.5 }}>Top deviations</Typography>
+              <Stack spacing={0.5}>
+                {top.map((d, i) => (
+                  <Stack key={i} direction="row" alignItems="center" spacing={1} sx={{ color: '#F1A501' }}>
+                    {d.delta >= 0 ? <ArrowUpwardIcon fontSize="small" sx={{ color: '#B30700' }} /> : <ArrowDownwardIcon fontSize="small" sx={{ color: '#B30700' }} />}
+                    <Typography variant="body2">{d.from} → {d.to}: {d.delta >= 0 ? '+' : ''}{d.delta.toFixed(2)}</Typography>
+                  </Stack>
+                ))}
+              </Stack>
+            </Box>
+          )
+        })()}
         {detail?.notes && (
           <Typography sx={{ color: '#F1A501', mt: 1, whiteSpace: 'pre-wrap' }}>{detail.notes}</Typography>
         )}
