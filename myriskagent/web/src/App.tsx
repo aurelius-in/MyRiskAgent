@@ -8,12 +8,22 @@ import Scores from './pages/Scores'
 import Ask from './pages/Ask'
 import NavLogo from './components/NavLogo'
 import ErrorBoundary from './components/ErrorBoundary'
+import { OrgProvider, useOrg } from './context/OrgContext'
 
 function a11yProps(index: number) {
   return {
     id: `mra-tab-${index}`,
     'aria-controls': `mra-tabpanel-${index}`,
   }
+}
+
+const OrgSelector: React.FC = () => {
+  const { orgName, setOrg } = useOrg()
+  return (
+    <select value={orgName} onChange={(e) => setOrg(1, e.target.value)} style={{ background: '#000', color: '#F1A501', border: '1px solid #B30700', marginRight: 8 }}>
+      <option value="ACME">ACME</option>
+    </select>
+  )
 }
 
 const Footer: React.FC = () => {
@@ -30,44 +40,47 @@ const App: React.FC = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Box sx={{ bgcolor: 'black', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-        <CssBaseline />
-        <AppBar position="static" sx={{ bgcolor: '#000000', borderBottom: '1px solid #B30700' }}>
-          <Toolbar>
-            <NavLogo />
-            <Typography
-              variant="h6"
-              sx={{ flexGrow: 1, color: '#F1A501', fontFamily: 'Special Elite, serif', ml: 1 }}
-            >
-              <span style={{ fontFamily: 'Arial, sans-serif' }}>My</span>
-              <span style={{ color: '#B30700', margin: '0 6px' }}>Risk</span>
-              <span style={{ fontFamily: 'Arial, sans-serif' }}>Agent</span>
-            </Typography>
-            <Tabs
-              value={tab}
-              onChange={(_, v) => setTab(v)}
-              textColor="inherit"
-              TabIndicatorProps={{ style: { backgroundColor: '#F1A501' } }}
-            >
-              <Tab label="Overview" {...a11yProps(0)} sx={{ color: '#F1A501' }} />
-              <Tab label="Scores" {...a11yProps(1)} sx={{ color: '#F1A501' }} />
-              <Tab label="Drivers" {...a11yProps(2)} sx={{ color: '#F1A501' }} />
-              <Tab label="Documents" {...a11yProps(3)} sx={{ color: '#F1A501' }} />
-              <Tab label="Ask" {...a11yProps(4)} sx={{ color: '#F1A501' }} />
-            </Tabs>
-          </Toolbar>
-        </AppBar>
-        <Box sx={{ p: 2, flex: 1 }}>
-          <ErrorBoundary>
-            {tab === 0 && <Overview />}
-            {tab === 1 && <Scores />}
-            {tab === 2 && <div style={{ color: '#F1A501' }}>Drivers coming soon.</div>}
-            {tab === 3 && <Documents />}
-            {tab === 4 && <Ask />}
-          </ErrorBoundary>
+      <OrgProvider>
+        <Box sx={{ bgcolor: 'black', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+          <CssBaseline />
+          <AppBar position="static" sx={{ bgcolor: '#000000', borderBottom: '1px solid #B30700' }}>
+            <Toolbar>
+              <NavLogo />
+              <Typography
+                variant="h6"
+                sx={{ flexGrow: 1, color: '#F1A501', fontFamily: 'Special Elite, serif', ml: 1 }}
+              >
+                <span style={{ fontFamily: 'Arial, sans-serif' }}>My</span>
+                <span style={{ color: '#B30700', margin: '0 6px' }}>Risk</span>
+                <span style={{ fontFamily: 'Arial, sans-serif' }}>Agent</span>
+              </Typography>
+              <OrgSelector />
+              <Tabs
+                value={tab}
+                onChange={(_, v) => setTab(v)}
+                textColor="inherit"
+                TabIndicatorProps={{ style: { backgroundColor: '#F1A501' } }}
+              >
+                <Tab label="Overview" {...a11yProps(0)} sx={{ color: '#F1A501' }} />
+                <Tab label="Scores" {...a11yProps(1)} sx={{ color: '#F1A501' }} />
+                <Tab label="Drivers" {...a11yProps(2)} sx={{ color: '#F1A501' }} />
+                <Tab label="Documents" {...a11yProps(3)} sx={{ color: '#F1A501' }} />
+                <Tab label="Ask" {...a11yProps(4)} sx={{ color: '#F1A501' }} />
+              </Tabs>
+            </Toolbar>
+          </AppBar>
+          <Box sx={{ p: 2, flex: 1 }}>
+            <ErrorBoundary>
+              {tab === 0 && <Overview />}
+              {tab === 1 && <Scores />}
+              {tab === 2 && <div style={{ color: '#F1A501' }}>Drivers coming soon.</div>}
+              {tab === 3 && <Documents />}
+              {tab === 4 && <Ask />}
+            </ErrorBoundary>
+          </Box>
+          <Footer />
         </Box>
-        <Footer />
-      </Box>
+      </OrgProvider>
     </QueryClientProvider>
   )
 }
