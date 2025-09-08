@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Typography, TextField, Button, List, ListItem, ListItemText, Paper, Grid, Stack } from '@mui/material'
+import { Box, Typography, TextField, Button, List, ListItem, ListItemText, Paper, Grid, Stack, ToggleButtonGroup, ToggleButton } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { apiGet, apiPost } from '../lib/api'
 import type { DocResult } from '../lib/types'
@@ -10,11 +10,17 @@ const Documents: React.FC = () => {
   const { orgId } = useOrg()
   const [q, setQ] = React.useState('')
   const [ticker, setTicker] = React.useState('')
+  const [mode, setMode] = React.useState<'vector' | 'keyword'>('vector')
   const [selected, setSelected] = React.useState<DocResult | null>(null)
   const { data, isFetching, refetch, isError } = useQuery({
-    queryKey: ['docs', orgId, q],
+    queryKey: ['docs', orgId, q, mode],
     enabled: false,
-    queryFn: async () => apiGet<{ results: DocResult[] }>(`/api/docs/search?q=${encodeURIComponent(q)}&org_id=${orgId}`),
+    queryFn: async () => {
+      const path = mode === 'vector'
+        ? `/api/docs/search?q=${encodeURIComponent(q)}&org_id=${orgId}`
+        : `/api/docs/search/keyword?q=${encodeURIComponent(q)}&org_id=${orgId}`
+      return apiGet<{ results: DocResult[] }>(path)
+    },
   })
 
   const results = data?.results ?? []
@@ -37,6 +43,10 @@ const Documents: React.FC = () => {
           InputProps={{ sx: { color: '#F1A501' } }}
           sx={{ input: { color: '#F1A501' }, label: { color: '#F1A501' }, flex: 1 }}
         />
+        <ToggleButtonGroup exclusive value={mode} onChange={(_, v) => v && setMode(v)} size="small">
+          <ToggleButton value="vector" sx={{ color: '#F1A501', borderColor: '#B30700' }}>Vector</ToggleButton>
+          <ToggleButton value="keyword" sx={{ color: '#F1A501', borderColor: '#B30700' }}>Keyword</ToggleButton>
+        </ToggleButtonGroup>
         <TextField variant="outlined" size="small" placeholder="Ticker (e.g., ACMEX)" value={ticker} onChange={e => setTicker(e.target.value)}
           InputProps={{ sx: { color: '#F1A501' } }}
           sx={{ input: { color: '#F1A501' }, label: { color: '#F1A501' }, width: 200 }}
