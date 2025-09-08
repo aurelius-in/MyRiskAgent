@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Typography, TextField, Button, List, ListItem, ListItemText, Paper, Grid, Stack, ToggleButtonGroup, ToggleButton, Autocomplete, IconButton, FormControlLabel, Switch } from '@mui/material'
+import { Box, Typography, TextField, Button, List, ListItem, ListItemText, Paper, Grid, Stack, ToggleButtonGroup, ToggleButton, Autocomplete, IconButton, FormControlLabel, Switch, Chip, Alert } from '@mui/material'
 import StarBorder from '@mui/icons-material/StarBorder'
 import Star from '@mui/icons-material/Star'
 import { useQuery } from '@tanstack/react-query'
@@ -26,6 +26,7 @@ const Documents: React.FC = () => {
   })
   const [pinnedOnly, setPinnedOnly] = React.useState<boolean>(() => { try { return (localStorage.getItem('mra_docs_pinned_only') || 'false') === 'true' } catch { return false } })
   const [selectedIdx, setSelectedIdx] = React.useState<number>(-1)
+  const [showHelp, setShowHelp] = React.useState<boolean>(false)
 
   const recent = useQuery({
     queryKey: ['docs-recent', orgId, recentLimit],
@@ -98,6 +99,26 @@ const Documents: React.FC = () => {
 
   const showRecent = (!isFetching && !isError && results.length === 0)
 
+  React.useEffect(() => {
+    if (!selected && results.length > 0) {
+      setSelected(results[0])
+      setSelectedIdx(0)
+    }
+  }, [results])
+
+  const highlight = (text?: string) => {
+    if (!text) return ''
+    const terms = (q || '').trim().split(/\s+/).filter(Boolean)
+    let out = text
+    for (const t of terms) {
+      try {
+        const re = new RegExp(`(${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'ig')
+        out = out.replace(re, '<mark>$1</mark>')
+      } catch {}
+    }
+    return out
+  }
+
   return (
     <Box>
       <Typography variant="h4" gutterBottom>Documents</Typography>
@@ -116,7 +137,10 @@ const Documents: React.FC = () => {
         />
         <Autocomplete options={domainOptions} value={domain} onChange={(_, v) => setDomain(v)} renderInput={(params) => <TextField {...params} size="small" placeholder="Domain filter" />} sx={{ width: 220 }} />
         <FormControlLabel control={<Switch checked={pinnedOnly} onChange={(e) => setPinnedOnly(e.target.checked)} />} label="Pinned only" sx={{ color: '#F1A501' }} />
-        <Button variant="outlined" onClick={() => refetch()} disabled={isFetching} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Search</Button>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Button variant="outlined" onClick={() => refetch()} disabled={isFetching} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Search</Button>
+          <Chip size="small" label={`${results.length} results`} sx={{ bgcolor: '#111', border: '1px solid #B30700', color: '#F1A501' }} />
+        </Stack>
         <Button variant="outlined" onClick={fetchNews} disabled={isFetching} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Fetch Recent News</Button>
         <Button variant="outlined" onClick={fetchFilings} disabled={isFetching} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Fetch Filings</Button>
         <Button variant="outlined" onClick={() => { setQ(''); setTicker(''); setDomain(null); setSelected(null) }} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Clear</Button>
@@ -144,17 +168,38 @@ const Documents: React.FC = () => {
                 }
               } else if (e.key === 'Enter') {
                 if (selected && selected.url) window.open(selected.url, '_blank')
+              } else if (e.key.toLowerCase() === 'p') {
+                if (selected) togglePin(selected)
+              } else if (e.key.toLowerCase() === 'o') {
+                if (selected && selected.url) window.open(selected.url, '_blank')
+              } else if (e.key.toLowerCase() === 'c') {
+                if (selected && selected.url) {
+                  try { navigator.clipboard.writeText(selected.url) } catch {}
+                }
               } else if (e.key === 'Escape') {
                 setSelectedIdx(-1)
                 setSelected(null)
+              } else if (e.key === '?') {
+                setShowHelp(v => !v)
               }
             }}
           >
+            {showHelp && (
+              <Alert severity="info" sx={{ mb: 1, bgcolor: '#0a0a0a', color: '#F1A501', border: '1px solid #B30700' }}>
+                Shortcuts: ↑/↓ select, Enter open, P pin, O open, C copy, Esc clear, ? toggle help
+              </Alert>
+            )}
             {!!pinned.length && (
               <>
                 <Typography variant="subtitle1" sx={{ color: '#B30700', fontFamily: 'Special Elite, serif' }}>Pinned</Typography>
                 <List>
-                  {pinned.map((r) => (
+                  {isFetching ? (
+                    <>
+                      <SkeletonBlock height={16} />
+                      <SkeletonBlock height={16} />
+                      <SkeletonBlock height={16} />
+                    </>
+                  ) : pinned.map((r) => (
                     <ListItem key={`pin-${r.id}`} button onClick={() => setSelected(r)}>
                       <ListItemText primary={r.title} secondary={r.snippet} sx={{ color: '#F1A501' }} />
                     </ListItem>
@@ -171,7 +216,7 @@ const Documents: React.FC = () => {
                   {results.map((r, i) => {
                     const pinnedOn = !!pinned.find(d => String(d.id) === String(r.id))
                     return (
-                      <ListItem key={r.id} button onClick={() => { setSelected(r); setSelectedIdx(i) }}
+                      <ListItem key={r.id} button onClick={() => { setSelected(r); setSelectedIdx(i) }} aria-selected={selectedIdx === i}
                         secondaryAction={
                           <IconButton edge="end" onClick={(e) => { e.stopPropagation(); togglePin(r) }} sx={{ color: '#F1A501' }}>
                             {pinnedOn ? <Star /> : <StarBorder />}
@@ -179,7 +224,13 @@ const Documents: React.FC = () => {
                         }
                         sx={{ bgcolor: selectedIdx === i ? '#1a1a1a' : 'transparent' }}
                       >
-                        <ListItemText primary={r.title} secondary={r.snippet} sx={{ color: '#F1A501' }} />
+                        <ListItemText
+                          primaryTypographyProps={{ component: 'div' }}
+                          secondaryTypographyProps={{ component: 'div' }}
+                          primary={<span dangerouslySetInnerHTML={{ __html: highlight(r.title) }} />}
+                          secondary={<span dangerouslySetInnerHTML={{ __html: highlight(r.snippet) }} />}
+                          sx={{ color: '#F1A501' }}
+                        />
                       </ListItem>
                     )
                   })}

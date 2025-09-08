@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Typography, List, ListItem, ListItemText, Paper, Divider, Button, Slider, TextField, Snackbar, Alert } from '@mui/material'
+import { Box, Typography, List, ListItem, ListItemText, Paper, Divider, Button, Slider, TextField, Snackbar, Alert, Chip } from '@mui/material'
 import TrendSparkline from '../components/TrendSparkline'
 import { useQuery } from '@tanstack/react-query'
 import { apiGet } from '../lib/api'
@@ -29,6 +29,15 @@ const Scores: React.FC = () => {
 
   const exportOutliers = () => {
     exportToCsv('provider_outliers.csv', (outliers.data?.providers || []) as any)
+  }
+  const copyOutliersCsv = async () => {
+    const rows = outliers.data?.providers || []
+    const header = ['provider_id','score','z_total_amount','z_avg_amount','z_n_claims']
+    const lines = [header.join(',')]
+    for (const r of rows as any[]) {
+      lines.append(`${r.provider_id},${r.score},${r.z_total_amount || ''},${r.z_avg_amount || ''},${r.z_n_claims || ''}`)
+    }
+    try { await navigator.clipboard.writeText(lines.join('\n') + '\n'); setToast({ open: true, kind: 'success', msg: 'Copied' }) } catch { setToast({ open: true, kind: 'error', msg: 'Copy failed' }) }
   }
 
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
@@ -91,6 +100,8 @@ const Scores: React.FC = () => {
           <TextField size="small" placeholder="Industry" value={industry} onChange={e => setIndustry(e.target.value)} sx={{ input: { color: '#F1A501' } }} />
           <TextField size="small" placeholder="Region" value={region} onChange={e => setRegion(e.target.value)} sx={{ input: { color: '#F1A501' } }} />
           <Button variant="outlined" onClick={exportOutliers} disabled={outliers.isLoading} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Export CSV</Button>
+          <Button variant="outlined" onClick={copyOutliersCsv} disabled={outliers.isLoading} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Copy CSV</Button>
+          <Chip size="small" label={`${(outliers.data?.providers || []).length} rows`} sx={{ bgcolor: '#111', border: '1px solid #333', color: '#F1A501' }} />
           <input ref={fileInputRef} type="file" accept=".csv,.parquet,.pq" style={{ display: 'none' }} onChange={onFileChange} />
           <Button variant="outlined" onClick={onUploadClick} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Upload Claims</Button>
         </Box>

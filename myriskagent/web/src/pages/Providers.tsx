@@ -35,6 +35,7 @@ const Providers: React.FC = () => {
   const [industry, setIndustry] = React.useState<string>(() => { try { return localStorage.getItem('mra_prov_industry') || '' } catch { return '' } })
   const [region, setRegion] = React.useState<string>(() => { try { return localStorage.getItem('mra_prov_region') || '' } catch { return '' } })
   const [query, setQuery] = React.useState<string>(() => { try { return localStorage.getItem('mra_prov_query') || '' } catch { return '' } })
+  const [qDebounced, setQDebounced] = React.useState<string>(query)
   const industryOptions = React.useMemo(() => Array.from(new Set((data?.providers || []).map(p => p.industry).filter(Boolean))) as string[], [data])
   const regionOptions = React.useMemo(() => Array.from(new Set((data?.providers || []).map(p => p.region).filter(Boolean))) as string[], [data])
 
@@ -52,10 +53,10 @@ const Providers: React.FC = () => {
     const filtered = src.filter(p =>
       (industry ? String(p.industry || '').toLowerCase().includes(industry.toLowerCase()) : true) &&
       (region ? String(p.region || '').toLowerCase().includes(region.toLowerCase()) : true) &&
-      (query ? (
-        String(p.provider_id).includes(query) ||
-        String(p.industry || '').toLowerCase().includes(query.toLowerCase()) ||
-        String(p.region || '').toLowerCase().includes(query.toLowerCase())
+      (qDebounced ? (
+        String(p.provider_id).includes(qDebounced) ||
+        String(p.industry || '').toLowerCase().includes(qDebounced.toLowerCase()) ||
+        String(p.region || '').toLowerCase().includes(qDebounced.toLowerCase())
       ) : true)
     )
     const sorted = [...filtered].sort((a, b) => {
@@ -65,7 +66,24 @@ const Providers: React.FC = () => {
       return order === 'asc' ? cmp : -cmp
     })
     return sorted
-  }, [data, orderBy, order, industry, region])
+  }, [data, orderBy, order, industry, region, qDebounced])
+
+  // Persist sort and scroll to top on filter changes
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('mra_prov_order_by', String(orderBy))
+      localStorage.setItem('mra_prov_order', order)
+    } catch {}
+  }, [orderBy, order])
+
+  React.useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [qDebounced, industry, region])
+
+  React.useEffect(() => {
+    const t = setTimeout(() => setQDebounced(query), 300)
+    return () => clearTimeout(t)
+  }, [query])
 
   // Clear filters
   const clearFilters = () => { setIndustry(''); setRegion(''); setQuery('') }
@@ -144,10 +162,12 @@ const Providers: React.FC = () => {
         <Button variant="outlined" onClick={copyCsv} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Copy CSV</Button>
         <FormControlLabel control={<Switch checked={dense} onChange={(e) => setDense(e.target.checked)} />} label="Dense" sx={{ color: '#F1A501' }} />
       </Box>
-      <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }}>
+      <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
         {query && <Chip label={`q: ${query}`} onDelete={() => setQuery('')} sx={{ bgcolor: '#111', border: '1px solid #B30700', color: '#F1A501' }} />}
         {industry && <Chip label={`industry: ${industry}`} onDelete={() => setIndustry('')} sx={{ bgcolor: '#111', border: '1px solid #B30700', color: '#F1A501' }} />}
         {region && <Chip label={`region: ${region}`} onDelete={() => setRegion('')} sx={{ bgcolor: '#111', border: '1px solid #B30700', color: '#F1A501' }} />}
+        <Chip label={`${rows.length} rows`} sx={{ bgcolor: '#111', border: '1px solid #333', color: '#F1A501' }} />
+        <Button size="small" onClick={() => { setOrderBy('total_amount'); setOrder('desc') }}>Reset Sort</Button>
       </Stack>
       <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700' }}>
         {isLoading && <SkeletonBlock height={160} />}

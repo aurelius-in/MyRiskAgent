@@ -49,6 +49,11 @@ const App: React.FC = () => {
     },
     refetchInterval: 30000,
   })
+  const { data: version } = useQuery({
+    queryKey: ['version'],
+    queryFn: async () => { try { const r = await fetch('/api/version'); return r.ok ? r.json() : { version: 'dev' } } catch { return { version: 'dev' } } },
+    refetchInterval: 60000,
+  })
 
   React.useEffect(() => {
     try { localStorage.setItem('mra_tab', String(tab)) } catch {}
@@ -85,6 +90,7 @@ const App: React.FC = () => {
                 <span style={{ color: '#B30700', margin: '0 6px' }}>Risk</span>
                 <span style={{ fontFamily: 'Arial, sans-serif' }}>Agent</span>
               </Typography>
+              <Chip size="small" label={`v${version?.version || 'dev'}`} sx={{ bgcolor: '#111', border: '1px solid #333', color: '#F1A501', mr: 1 }} />
               <Chip size="small" label={health?.status === 'ok' ? 'OK' : 'DOWN'} sx={{ bgcolor: '#111', border: `1px solid ${health?.status === 'ok' ? '#0a0' : '#a00'}`, color: health?.status === 'ok' ? '#0f0' : '#f00', mr: 1 }} />
               <OrgSelector />
               <Tabs
@@ -92,12 +98,12 @@ const App: React.FC = () => {
                 onChange={(_, v) => setTab(v)}
                 textColor="inherit"
               >
-                <Tab label="Overview" {...a11yProps(0)} sx={{ color: '#F1A501' }} />
-                <Tab label="Scores" {...a11yProps(1)} sx={{ color: '#F1A501' }} />
-                <Tab label="Drivers" {...a11yProps(2)} sx={{ color: '#F1A501' }} />
-                <Tab label="Documents" {...a11yProps(3)} sx={{ color: '#F1A501' }} />
-                <Tab label="Ask" {...a11yProps(4)} sx={{ color: '#F1A501' }} />
-                <Tab label="Providers" {...a11yProps(5)} sx={{ color: '#F1A501' }} />
+                <Tab label="Overview" {...a11yProps(0)} title="Alt+1" sx={{ color: '#F1A501' }} />
+                <Tab label="Scores" {...a11yProps(1)} title="Alt+2" sx={{ color: '#F1A501' }} />
+                <Tab label="Drivers" {...a11yProps(2)} title="Alt+3" sx={{ color: '#F1A501' }} />
+                <Tab label="Documents" {...a11yProps(3)} title="Alt+4" sx={{ color: '#F1A501' }} />
+                <Tab label="Ask" {...a11yProps(4)} title="Alt+5" sx={{ color: '#F1A501' }} />
+                <Tab label="Providers" {...a11yProps(5)} title="Alt+6" sx={{ color: '#F1A501' }} />
               </Tabs>
             </Toolbar>
             {isFetchingAny && <LinearProgress color="secondary" />}
