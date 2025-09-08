@@ -1,6 +1,7 @@
 import React from 'react'
-import { Box, Typography, TextField, Button, Chip, Paper } from '@mui/material'
+import { Box, Typography, TextField, Button, Paper } from '@mui/material'
 import { apiPost } from '../lib/api'
+import SourceChips from '../components/SourceChips'
 
 interface AskResponse { answer: string; citations: { id: string; title?: string; url?: string }[] }
 
@@ -43,11 +44,7 @@ const Ask: React.FC = () => {
       {answer && (
         <Paper sx={{ p: 2, bgcolor: '#111', border: '1px solid #B30700' }}>
           <div style={{ color: '#F1A501', marginBottom: 8 }}>{answer}</div>
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {cites.map((c) => (
-              <Chip key={c.id} label={c.title || c.id} component="a" href={c.url} target="_blank" clickable sx={{ color: '#F1A501', borderColor: '#B30700' }} variant="outlined" />
-            ))}
-          </Box>
+          <SourceChips items={cites} />
         </Paper>
       )}
     </Box>
