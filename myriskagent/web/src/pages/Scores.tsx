@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Typography, List, ListItem, ListItemText, Paper, Divider, Button } from '@mui/material'
+import { Box, Typography, List, ListItem, ListItemText, Paper, Divider, Button, Slider } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { apiGet } from '../lib/api'
 import SkeletonBlock from '../components/SkeletonBlock'
@@ -37,6 +37,8 @@ const Scores: React.FC = () => {
     e.target.value = ''
   }
 
+  const [minScore, setMinScore] = React.useState<number>(0)
+
   const [detailOpen, setDetailOpen] = React.useState(false)
   const [detail, setDetail] = React.useState<any>(null)
   const openDetail = async (providerId: number) => {
@@ -44,6 +46,8 @@ const Scores: React.FC = () => {
     setDetail(d)
     setDetailOpen(true)
   }
+
+  const filtered = (outliers.data?.providers || []).filter(p => (p.score ?? 0) >= minScore)
 
   return (
     <Box>
@@ -73,10 +77,16 @@ const Scores: React.FC = () => {
           <Button variant="outlined" onClick={onUploadClick} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Upload Claims</Button>
         </Box>
       </Box>
+
+      <Box sx={{ mb: 1 }}>
+        <Typography variant="body2" sx={{ color: '#F1A501' }}>Min Score: {minScore.toFixed(0)}</Typography>
+        <Slider value={minScore} onChange={(_, v) => setMinScore(v as number)} min={0} max={100} step={1} sx={{ color: '#B30700' }} />
+      </Box>
+
       <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700' }}>
         {outliers.isLoading && <SkeletonBlock height={160} />}
         {outliers.isError && <div style={{ color: '#B30700', padding: 8 }}>Failed to load outliers.</div>}
-        {!outliers.isLoading && !outliers.isError && <OutliersTable rows={outliers.data?.providers || []} onSelect={openDetail} />}
+        {!outliers.isLoading && !outliers.isError && <OutliersTable rows={filtered} onSelect={openDetail} />}
       </Paper>
 
       <ProviderDetailDialog open={detailOpen} onClose={() => setDetailOpen(false)} detail={detail || undefined} />
