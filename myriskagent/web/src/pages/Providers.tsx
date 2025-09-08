@@ -1,5 +1,7 @@
 import React from 'react'
-import { Box, Typography, Paper, Table, TableHead, TableRow, TableCell, TableBody, TableSortLabel, TextField, Button, Autocomplete, Snackbar, Alert, Chip, Stack, TableContainer, Switch, FormControlLabel } from '@mui/material'
+import { Box, Typography, Paper, Table, TableHead, TableRow, TableCell, TableBody, TableSortLabel, TextField, Button, Autocomplete, Snackbar, Alert, Chip, Stack, TableContainer, Switch, FormControlLabel, IconButton, List, ListItem, ListItemText } from '@mui/material'
+import StarBorder from '@mui/icons-material/StarBorder'
+import Star from '@mui/icons-material/Star'
 import { useQuery } from '@tanstack/react-query'
 import { apiGet } from '../lib/api'
 import { useOrg } from '../context/OrgContext'
@@ -85,6 +87,15 @@ const Providers: React.FC = () => {
     return () => clearTimeout(t)
   }, [query])
 
+  const togglePinProvider = (id: number) => {
+    setPinnedProviders(prev => {
+      const exists = prev.includes(id)
+      const next = exists ? prev.filter(x => x !== id) : [id, ...prev].slice(0, 50)
+      try { localStorage.setItem('mra_pinned_providers', JSON.stringify(next)) } catch {}
+      return next
+    })
+  }
+
   // Clear filters
   const clearFilters = () => { setIndustry(''); setRegion(''); setQuery('') }
 
@@ -92,6 +103,9 @@ const Providers: React.FC = () => {
   const [detail, setDetail] = React.useState<any>(null)
   const [toast, setToast] = React.useState<{ open: boolean; msg: string }>({ open: false, msg: '' })
   const [dense, setDense] = React.useState<boolean>(false)
+  const [pinnedProviders, setPinnedProviders] = React.useState<number[]>(() => {
+    try { const raw = localStorage.getItem('mra_pinned_providers'); return raw ? JSON.parse(raw) : [] } catch { return [] }
+  })
   const openDetail = async (providerId: number) => {
     const d = await apiGet(`/api/providers/${providerId}/detail?org_id=${orgId}`)
     setDetail(d)
@@ -169,6 +183,20 @@ const Providers: React.FC = () => {
         <Chip label={`${rows.length} rows`} sx={{ bgcolor: '#111', border: '1px solid #333', color: '#F1A501' }} />
         <Button size="small" onClick={() => { setOrderBy('total_amount'); setOrder('desc') }}>Reset Sort</Button>
       </Stack>
+      {pinnedProviders.length > 0 && (
+        <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700', mb: 2, p: 1 }}>
+          <Typography variant="h6" sx={{ color: '#F1A501', fontFamily: 'Special Elite, serif' }}>Pinned Providers</Typography>
+          <List>
+            {pinnedProviders.map(pid => (
+              <ListItem key={`pinprov-${pid}`} secondaryAction={
+                <Button size="small" onClick={() => togglePinProvider(pid)} sx={{ color: '#F1A501', borderColor: '#B30700' }} variant="outlined">Unpin</Button>
+              }>
+                <ListItemText primary={`Provider ${pid}`} sx={{ color: '#F1A501' }} />
+              </ListItem>
+            ))}
+          </List>
+        </Paper>
+      )}
       <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700' }}>
         {isLoading && <SkeletonBlock height={160} />}
         {isError && <ErrorState message="Failed to load providers." />}
@@ -197,7 +225,12 @@ const Providers: React.FC = () => {
             <TableBody>
               {rows.map(r => (
                 <TableRow key={r.provider_id} hover style={{ cursor: 'pointer' }} onClick={() => openDetail(r.provider_id)}>
-                  <TableCell sx={{ color: '#F1A501' }}>{r.provider_id}</TableCell>
+                  <TableCell sx={{ color: '#F1A501', display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <IconButton size="small" onClick={(e) => { e.stopPropagation(); togglePinProvider(r.provider_id) }} sx={{ color: '#F1A501' }}>
+                      {pinnedProviders.includes(r.provider_id) ? <Star /> : <StarBorder />}
+                    </IconButton>
+                    {r.provider_id}
+                  </TableCell>
                   <TableCell sx={{ color: '#F1A501' }} align="right">{r.total_amount.toFixed(2)}</TableCell>
                   <TableCell sx={{ color: '#F1A501' }} align="right">{r.avg_amount.toFixed(2)}</TableCell>
                   <TableCell sx={{ color: '#F1A501' }} align="right">{r.n_claims}</TableCell>
