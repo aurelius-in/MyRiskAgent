@@ -1,25 +1,20 @@
 import React from 'react'
 import { Box, Typography, Paper } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
-import { apiPost } from '../lib/api'
+import { apiGet } from '../lib/api'
 import RiskWaterfall, { WaterfallItem } from '../components/RiskWaterfall'
 import SkeletonBlock from '../components/SkeletonBlock'
-import type { ProfileResp } from '../lib/types'
+
+interface DriversResp { drivers: { name: string; value: number }[] }
 
 const Drivers: React.FC = () => {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['drivers', 1, 'latest'],
-    queryFn: async () => apiPost<ProfileResp>('/api/risk/recompute/1/latest', {}),
+    queryFn: async () => apiGet<DriversResp>('/api/risk/drivers/1/latest'),
     staleTime: 15_000,
   })
 
-  // Placeholder mapping until backend returns explicit drivers
-  const items: WaterfallItem[] = [
-    { name: 'Margins', value: 5 },
-    { name: 'Legal Mentions', value: 3 },
-    { name: 'Supply Delays', value: -2 },
-    { name: 'Online Buzz', value: 1 },
-  ]
+  const items: WaterfallItem[] = (data?.drivers || []).map(d => ({ name: d.name, value: d.value }))
 
   return (
     <Box>

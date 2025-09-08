@@ -120,6 +120,18 @@ async def risk_recompute(org_id: int, period: str):
     }
 
 
+@app.get("/risk/drivers/{org_id}/{period}")
+async def risk_drivers(org_id: int, period: str):
+    # Demo drivers payload; replace with SHAP/heuristic outputs later
+    drivers = [
+        {"name": "Margins", "value": 5.0},
+        {"name": "Legal Mentions", "value": 3.0},
+        {"name": "Supply Delays", "value": -2.0},
+        {"name": "Online Buzz", "value": 1.0},
+    ]
+    return {"org_id": org_id, "period": period, "drivers": drivers}
+
+
 @app.get("/scores/{org_id}/{period}")
 async def get_scores(org_id: int, period: str):
     profile = await risk_recompute(org_id, period)
@@ -166,7 +178,6 @@ async def ask(req: AskRequest):
 async def report_executive(org_id: int, period: str):
     if NARRATOR is None:
         raise HTTPException(status_code=500, detail="Narrator not initialized")
-    # In a full implementation we would fetch top docs and scores
     rep = await NARRATOR.build_reports({"org_id": org_id, "period": period})
     return {"html": rep.html, "summary": rep.summary}
 

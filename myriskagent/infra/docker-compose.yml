@@ -61,6 +61,20 @@ services:
     networks:
       - mra-net
 
+  web:
+    image: node:18-alpine
+    container_name: mra-web
+    working_dir: /web
+    command: sh -lc "npm install && npm run dev"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ../web:/web
+    depends_on:
+      - api
+    networks:
+      - mra-net
+
   prometheus:
     image: prom/prometheus:v2.53.0
     container_name: mra-prometheus
