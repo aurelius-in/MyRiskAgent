@@ -8,7 +8,7 @@ import type { ScoresListResp, OutliersResp } from '../lib/types'
 import { exportToCsv } from '../lib/csv'
 
 const Scores: React.FC = () => {
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['scores', 1, 'latest'],
     queryFn: async () => apiGet<ScoresListResp>('/api/scores/1/latest'),
   })
@@ -20,6 +20,18 @@ const Scores: React.FC = () => {
 
   const exportOutliers = () => {
     exportToCsv('provider_outliers.csv', (outliers.data?.providers || []) as any)
+  }
+
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null)
+  const onUploadClick = () => fileInputRef.current?.click()
+  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const form = new FormData()
+    form.append('file', file)
+    await fetch('/api/ingest/claims?org_id=1', { method: 'POST', body: form })
+    await Promise.all([refetch(), outliers.refetch()])
+    e.target.value = ''
   }
 
   return (
@@ -44,7 +56,11 @@ const Scores: React.FC = () => {
 
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
         <Typography variant="h5" gutterBottom>Provider Outliers</Typography>
-        <Button variant="outlined" onClick={exportOutliers} disabled={outliers.isLoading} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Export CSV</Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button variant="outlined" onClick={exportOutliers} disabled={outliers.isLoading} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Export CSV</Button>
+          <input ref={fileInputRef} type="file" accept=".csv,.parquet,.pq" style={{ display: 'none' }} onChange={onFileChange} />
+          <Button variant="outlined" onClick={onUploadClick} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Upload Claims</Button>
+        </Box>
       </Box>
       <Paper sx={{ bgcolor: '#111', border: '1px solid #B30700' }}>
         {outliers.isLoading && <SkeletonBlock height={160} />}
