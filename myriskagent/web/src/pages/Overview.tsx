@@ -121,7 +121,7 @@ const Overview: React.FC = () => {
                 <Stack direction="row" spacing={1}>
                   <Button size="small" onClick={() => {
                     const header = 'title,url\n'
-                    const rows = pinned.map(d => `${(d.title || '').replaceAll('"','')},${d.url || ''}`).join('\n')
+                    const rows = (pinned || []).map(d => `${(d.title || '').replaceAll('"','')},${d.url || ''}`).join('\n')
                     const csv = header + rows + (rows ? '\n' : '')
                     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
                     const url = URL.createObjectURL(blob)
@@ -133,6 +133,14 @@ const Overview: React.FC = () => {
                     document.body.removeChild(a)
                     URL.revokeObjectURL(url)
                   }}>Export CSV</Button>
+                  <Button size="small" onClick={async () => {
+                    try {
+                      const header = 'title,url\n'
+                      const rows = (pinned || []).map(d => `${(d.title || '').replaceAll('"','')},${d.url || ''}`).join('\n')
+                      await navigator.clipboard.writeText(header + rows + (rows ? '\n' : ''))
+                    } catch {}
+                  }}>Copy as CSV</Button>
+                  <Button size="small" onClick={() => { (pinned || []).forEach((d: any) => { if (d.url) window.open(d.url, '_blank') }) }}>Open All</Button>
                   <Button size="small" onClick={() => {
                     setPinned([])
                     try { localStorage.setItem('mra_pinned_docs', JSON.stringify([])) } catch {}
@@ -143,7 +151,7 @@ const Overview: React.FC = () => {
                 <EmptyState message="No pinned documents yet." />)
                 : (
                   <List>
-                    {pinned.slice(0, 8).map((d, idx) => (
+                    {([...pinned].sort((a,b) => (b.pinned_at || 0) - (a.pinned_at || 0)).slice(0, 8)).map((d, idx) => (
                       <ListItem key={`pin-${idx}`}>
                         <ListItemText primary={d.title} secondary={d.snippet} sx={{ color: '#F1A501' }} />
                         <Stack direction="row" spacing={1}>

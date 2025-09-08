@@ -38,7 +38,9 @@ const Footer: React.FC = () => {
 }
 
 const App: React.FC = () => {
-  const [tab, setTab] = React.useState(0)
+  const [tab, setTab] = React.useState<number>(() => {
+    try { const v = localStorage.getItem('mra_tab'); return v ? Number(v) : 0 } catch { return 0 }
+  })
   const isFetchingAny = useIsFetching() > 0
   const { data: health } = useQuery({
     queryKey: ['healthz'],
@@ -47,6 +49,25 @@ const App: React.FC = () => {
     },
     refetchInterval: 30000,
   })
+
+  React.useEffect(() => {
+    try { localStorage.setItem('mra_tab', String(tab)) } catch {}
+  }, [tab])
+
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.altKey) {
+        const map: Record<string, number> = { '1': 0, '2': 1, '3': 2, '4': 3, '5': 4, '6': 5 }
+        const idx = map[e.key]
+        if (idx !== undefined) {
+          e.preventDefault()
+          setTab(idx)
+        }
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
 
   return (
     <QueryClientProvider client={queryClient}>
