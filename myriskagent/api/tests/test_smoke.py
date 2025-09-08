@@ -93,3 +93,12 @@ def test_providers_export_csv_smoke():
     r = client.get("/providers/export?org_id=1")
     assert r.status_code == 200
     assert r.headers.get("content-type", "").startswith("text/csv")
+
+
+def test_docs_recent_smoke():
+    client = TestClient(app)
+    r = client.get("/docs/recent?org_id=1&limit=5")
+    assert r.status_code == 200
+    data = r.json()
+    assert data.get("org_id") == 1
+    assert isinstance(data.get("results"), list)

@@ -12,6 +12,13 @@ const Documents: React.FC = () => {
   const [ticker, setTicker] = React.useState('')
   const [mode, setMode] = React.useState<'vector' | 'keyword'>('vector')
   const [selected, setSelected] = React.useState<DocResult | null>(null)
+
+  const recent = useQuery({
+    queryKey: ['docs-recent', orgId],
+    queryFn: async () => apiGet<{ results: DocResult[] }>(`/api/docs/recent?org_id=${orgId}&limit=10`),
+    staleTime: 60_000,
+  })
+
   const { data, isFetching, refetch, isError } = useQuery({
     queryKey: ['docs', orgId, q, mode],
     enabled: false,
@@ -27,13 +34,15 @@ const Documents: React.FC = () => {
 
   const fetchNews = async () => {
     await apiPost('/api/agents/news', { query: q, org: String(orgId) })
-    await refetch()
+    await Promise.all([recent.refetch(), refetch()])
   }
 
   const fetchFilings = async () => {
     await apiPost('/api/agents/filings', { ticker: ticker || undefined, org: q || undefined })
-    await refetch()
+    await Promise.all([recent.refetch(), refetch()])
   }
+
+  const showRecent = (!isFetching && !isError && results.length === 0)
 
   return (
     <Box>
@@ -61,14 +70,23 @@ const Documents: React.FC = () => {
             {isFetching && <SkeletonBlock height={100} />}
             {isError && <div style={{ color: '#B30700' }}>Search failed. Try again.</div>}
             {!isFetching && !isError && (
-              <List>
-                {results.map((r) => (
-                  <ListItem key={r.id} button onClick={() => setSelected(r)}>
-                    <ListItemText primary={r.title} secondary={r.snippet} sx={{ color: '#F1A501' }} />
-                  </ListItem>
-                ))}
-                {results.length === 0 && <ListItem><ListItemText primary={'No results yet.'} sx={{ color: '#F1A501' }} /></ListItem>}
-              </List>
+              <>
+                <List>
+                  {results.map((r) => (
+                    <ListItem key={r.id} button onClick={() => setSelected(r)}>
+                      <ListItemText primary={r.title} secondary={r.snippet} sx={{ color: '#F1A501' }} />
+                    </ListItem>
+                  ))}
+                  {results.length === 0 && recent.data && recent.data.results && recent.data.results.map((r) => (
+                    <ListItem key={`recent-${r.id}`} button onClick={() => setSelected(r)}>
+                      <ListItemText primary={r.title} secondary={r.snippet} sx={{ color: '#F1A501' }} />
+                    </ListItem>
+                  ))}
+                  {results.length === 0 && (!recent.data || (recent.data.results || []).length === 0) && (
+                    <ListItem><ListItemText primary={'No results yet.'} sx={{ color: '#F1A501' }} /></ListItem>
+                  )}
+                </List>
+              </>
             )}
           </Paper>
         </Grid>
@@ -77,7 +95,7 @@ const Documents: React.FC = () => {
             {selected ? (
               <iframe title="doc" src={selected.url} style={{ width: '100%', height: 360, border: 'none', background: '#000' }} />
             ) : (
-              <div style={{ color: '#F1A501' }}>Select a document to preview.</div>
+              <div style={{ color: '#F1A501' }}>{showRecent ? 'Select a recent document to preview.' : 'Select a document to preview.'}</div>
             )}
           </Paper>
         </Grid>

@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 import io as _io_for_pdf
 from pydantic import BaseModel
-from sqlmodel import SQLModel, create_engine
+from sqlmodel import SQLModel, create_engine, Session, select
 
 from .config import get_settings, Settings
 from .search.vector import InMemoryVectorStore, DocumentUpsert, PgVectorStore, ChromaVectorStore  # updated import
@@ -24,6 +24,7 @@ from .search.keyword import bm25_score
 from .telemetry import init_tracing, get_tracer
 from .risk.explain import explain_scores
 from .agents.social import SocialAgent
+from .models import ProviderAggregate as DBAgg, ProviderOutlier as DBOut
 
 # Prometheus
 from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
@@ -198,17 +199,42 @@ async def ingest_claims(file: UploadFile = File(...), org_id: int = Query(1)):
     if "provider_id" not in df.columns and "provider" in df.columns:
         df = df.rename(columns={"provider": "provider_id"})
 
-    # Save to in-memory store
     try:
         CLAIMS_BY_ORG[org_id] = df.copy()
     except Exception:
         pass
 
-    # Compute provider outliers if possible
+    # Persist aggregates and outliers
+    settings = get_settings()
+    engine = create_engine(settings.sqlalchemy_database_uri, echo=False)
     outliers = []
     try:
-        agent = ProviderOutlierAgent()
-        outliers = [o.__dict__ for o in agent.run(df[[c for c in df.columns if c in {"provider_id", "claim_amount"}]].dropna())][:10]
+        # Aggregates
+        agg = (
+            df.groupby("provider_id")
+            .agg(total_amount=("claim_amount", "sum"), avg_amount=("claim_amount", "mean"), n_claims=("claim_amount", "count"))
+            .reset_index()
+        )
+        with Session(engine) as s:
+            period = "latest"
+            for _, row in agg.iterrows():
+                s.add(DBAgg(
+                    org_id=org_id,
+                    provider_id=int(row["provider_id"]),
+                    period=period,
+                    total_amount=float(row["total_amount"]),
+                    avg_amount=float(row["avg_amount"]),
+                    n_claims=int(row["n_claims"]),
+                    industry=str(df[df["provider_id"] == row["provider_id"]]["industry"].dropna().head(1).iloc[0]) if "industry" in df.columns and not df[df["provider_id"] == row["provider_id"]]["industry"].dropna().empty else None,
+                    region=str(df[df["provider_id"] == row["provider_id"]]["region"].dropna().head(1).iloc[0]) if "region" in df.columns and not df[df["provider_id"] == row["provider_id"]]["region"].dropna().empty else None,
+                ))
+            # Outliers
+            agent = ProviderOutlierAgent()
+            rows = agent.run(df[[c for c in df.columns if c in {"provider_id", "claim_amount"}]].dropna())
+            for r in rows:
+                s.add(DBOut(org_id=org_id, provider_id=r.provider_id, period=period, score=r.score, details=r.details))
+                outliers.append({"provider_id": r.provider_id, "score": r.score, **r.details})
+            s.commit()
     except Exception:
         outliers = []
 
@@ -291,7 +317,22 @@ async def outliers_providers(
     industry: Optional[str] = Query(None),
     region: Optional[str] = Query(None),
 ):
-    # If claims are available, compute outliers; otherwise return demo
+    # Prefer DB if available
+    try:
+        engine = create_engine(get_settings().sqlalchemy_database_uri, echo=False)
+        with Session(engine) as s:
+            stmt = select(DBOut).where(DBOut.org_id == org_id, DBOut.period == period)
+            rows = s.exec(stmt).all()
+            providers = [
+                {"provider_id": r.provider_id, "provider_name": f"Provider {r.provider_id}", "score": r.score, **(r.details or {})}
+                for r in rows
+            ]
+            if providers:
+                providers = sorted(providers, key=lambda x: x.get("score", 0), reverse=True)[:25]
+                return {"org_id": org_id, "period": period, "providers": providers}
+    except Exception:
+        pass
+    # Fallback to in-memory path
     try:
         df = CLAIMS_BY_ORG.get(org_id)
         if df is not None and not df.empty:
@@ -354,10 +395,31 @@ async def provider_detail(provider_id: int, org_id: int = Query(...)):
 
 @app.get("/providers")
 async def list_providers(org_id: int = Query(...)):
+    # Prefer DB if available
+    try:
+        engine = create_engine(get_settings().sqlalchemy_database_uri, echo=False)
+        with Session(engine) as s:
+            stmt = select(DBAgg).where(DBAgg.org_id == org_id)
+            rows = s.exec(stmt).all()
+            providers = []
+            for r in rows:
+                providers.append({
+                    "provider_id": r.provider_id,
+                    "total_amount": r.total_amount,
+                    "avg_amount": r.avg_amount,
+                    "n_claims": r.n_claims,
+                    "industry": r.industry,
+                    "region": r.region,
+                })
+            if providers:
+                providers = sorted(providers, key=lambda x: x["total_amount"], reverse=True)[:100]
+                return {"org_id": org_id, "providers": providers}
+    except Exception:
+        pass
+    # Fallback to in-memory
     df = CLAIMS_BY_ORG.get(org_id)
     if df is None or df.empty:
         return {"org_id": org_id, "providers": []}
-    # Aggregate per provider
     agg = (
         df.groupby("provider_id")
         .agg(
@@ -367,7 +429,6 @@ async def list_providers(org_id: int = Query(...)):
         )
         .reset_index()
     )
-    # Attach industry/region if columns exist by taking the first non-null
     if "industry" in df.columns:
         ind = df.dropna(subset=["industry"]).groupby("provider_id")["industry"].first().reset_index()
         agg = agg.merge(ind, on="provider_id", how="left")
@@ -433,6 +494,17 @@ async def docs_search_keyword(q: str, org_id: Optional[int] = None):
                 top.append({"id": d.get("id"), "title": d.get("title"), "url": d.get("url"), "snippet": d.get("content"), "score": score})
                 break
     return {"query": q, "org_id": org_id, "results": top}
+
+
+@app.get("/docs/recent")
+async def docs_recent(org_id: Optional[int] = None, limit: int = 10):
+    items = [d for d in DOCS if org_id is None or d.get("org_id") == org_id]
+    items = items[-limit:]
+    results = [
+        {"id": d.get("id"), "title": d.get("title"), "url": d.get("url"), "snippet": d.get("content")[:300]}
+        for d in items
+    ]
+    return {"org_id": org_id, "results": results}
 
 
 class AskRequest(BaseModel):
