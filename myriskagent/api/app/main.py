@@ -28,7 +28,7 @@ from .agents.social import SocialAgent
 from .models import ProviderAggregate as DBAgg, ProviderOutlier as DBOut
 
 # Prometheus
-from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
 # Data
 import io
@@ -55,6 +55,7 @@ VECTOR_STORE: InMemoryVectorStore | PgVectorStore | None = None
 
 # Basic request counter
 REQUEST_COUNTER = Counter("mra_requests_total", "Total HTTP requests", ["path", "method", "status"])
+REQUEST_LATENCY = Histogram("mra_request_latency_seconds", "Request latency in seconds", ["path", "method"])
 
 # Agents configured at startup
 NARRATOR: Optional[NarratorAgent] = None
@@ -75,9 +76,12 @@ async def version():
 
 @app.middleware("http")
 async def metrics_middleware(request: Request, call_next):
+    start = asyncio.get_event_loop().time()
     response: Response = await call_next(request)
     try:
         REQUEST_COUNTER.labels(path=request.url.path, method=request.method, status=str(response.status_code)).inc()
+        elapsed = max(asyncio.get_event_loop().time() - start, 0.0)
+        REQUEST_LATENCY.labels(path=request.url.path, method=request.method).observe(elapsed)
     except Exception:
         pass
     return response
@@ -620,16 +624,26 @@ async def report_full(org_id: int, period: str):
 async def report_pdf(org_id: int, period: str):
     try:
         from reportlab.pdfgen import canvas  # type: ignore
+        from reportlab.lib.colors import black, HexColor  # type: ignore
     except Exception as e:  # pragma: no cover
         raise HTTPException(status_code=500, detail=f"PDF generation not available: {e}")
 
     buffer = _io_for_pdf.BytesIO()
     c = canvas.Canvas(buffer)
     c.setTitle(f"MyRiskAgent Report {org_id} {period}")
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(72, 800, "MyRiskAgent Report")
+    # Noir header bar
+    c.setFillColor(HexColor("#000000"))
+    c.rect(0, 800, 612, 42, fill=1, stroke=0)
+    c.setFillColor(HexColor("#F1A501"))
+    c.setFont("Helvetica-Bold", 18)
+    c.drawString(72, 812, "MyRiskAgent Report")
+    # Subheader
+    c.setFillColor(HexColor("#B30700"))
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(72, 790, f"Org: {org_id}  Period: {period}")
+    # Body
+    c.setFillColor(HexColor("#F1A501"))
     c.setFont("Helvetica", 11)
-    c.drawString(72, 780, f"Org: {org_id}  Period: {period}")
     c.drawString(72, 760, "This is a minimal PDF placeholder for the full report.")
     c.showPage()
     c.save()
