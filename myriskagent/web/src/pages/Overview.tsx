@@ -5,12 +5,13 @@ import { apiPost } from '../lib/api'
 import RiskGauge from '../components/RiskGauge'
 import TrendSparkline from '../components/TrendSparkline'
 import WhatIfPanel from '../components/WhatIfPanel'
+import SkeletonBlock from '../components/SkeletonBlock'
 
 interface ScoreFamily { score: number; confidence: number }
 interface ProfileResp { scores: Record<string, ScoreFamily> }
 
 const Overview: React.FC = () => {
-  const { data, refetch } = useQuery({
+  const { data, refetch, isFetching, isError } = useQuery({
     queryKey: ['profile', 1, 'latest'],
     queryFn: async () => {
       const resp = await apiPost<ProfileResp>('/api/risk/recompute/1/latest', {})
@@ -36,28 +37,32 @@ const Overview: React.FC = () => {
   return (
     <Box>
       <Typography variant="h4" gutterBottom>Overview</Typography>
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2, bgcolor: '#111', border: '1px solid #B30700' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h6" sx={{ color: '#F1A501', fontFamily: 'Special Elite, serif' }}>Combined Index</Typography>
-              <Button variant="outlined" onClick={() => setOpen(true)} sx={{ color: '#F1A501', borderColor: '#B30700' }}>What If</Button>
-            </Box>
-            <RiskGauge label="Engagement Risk" value={combined} />
-            <TrendSparkline values={trend} />
-          </Paper>
+      {isFetching && <SkeletonBlock height={200} />}
+      {isError && <div style={{ color: '#B30700' }}>Failed to load. Retrying may help.</div>}
+      {!isFetching && !isError && (
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={6}>
+            <Paper sx={{ p: 2, bgcolor: '#111', border: '1px solid #B30700' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="h6" sx={{ color: '#F1A501', fontFamily: 'Special Elite, serif' }}>Combined Index</Typography>
+                <Button variant="outlined" onClick={() => setOpen(true)} sx={{ color: '#F1A501', borderColor: '#B30700' }}>What If</Button>
+              </Box>
+              <RiskGauge label="Engagement Risk" value={combined} />
+              <TrendSparkline values={trend} />
+            </Paper>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Paper sx={{ p: 2, bgcolor: '#111', border: '1px solid #B30700' }}>
+              <Typography variant="h6" sx={{ color: '#F1A501', fontFamily: 'Special Elite, serif' }}>Family Scores</Typography>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <RiskGauge label="Financial" value={fin} />
+                <RiskGauge label="Compliance" value={comp} />
+                <RiskGauge label="Operational" value={op} />
+              </Box>
+            </Paper>
+          </Grid>
         </Grid>
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2, bgcolor: '#111', border: '1px solid #B30700' }}>
-            <Typography variant="h6" sx={{ color: '#F1A501', fontFamily: 'Special Elite, serif' }}>Family Scores</Typography>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <RiskGauge label="Financial" value={fin} />
-              <RiskGauge label="Compliance" value={comp} />
-              <RiskGauge label="Operational" value={op} />
-            </Box>
-          </Paper>
-        </Grid>
-      </Grid>
+      )}
       <WhatIfPanel open={open} onClose={() => setOpen(false)} onChange={applyWhatIf} />
     </Box>
   )
