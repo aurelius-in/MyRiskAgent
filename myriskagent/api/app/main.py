@@ -15,7 +15,7 @@ from .search.vector import InMemoryVectorStore, DocumentUpsert, PgVectorStore  #
 from .agents.provider_outlier import ProviderOutlierAgent
 from .agents.narrator import NarratorAgent
 from .agents.evidence import EvidenceAgent
-from .storage.io import ObjectStore
+from .storage.io import ObjectStore, build_evidence_zip_bytes
 from .risk.engine import compute_family_scores, combine_scores  # NEW: use engine
 from .agents.news import NewsAgent
 from .agents.filings import FilingsAgent
@@ -418,6 +418,16 @@ async def get_evidence(entity: str, id: str, period: str):
         "README.txt": f"Evidence for {entity}:{id} {period}".encode("utf-8"),
     }).uri
     return {"entity": entity, "id": id, "period": period, "uri": uri}
+
+@app.get("/evidence/download/{entity}/{id}/{period}")
+async def download_evidence(entity: str, id: str, period: str):
+    payloads = {
+        "scores.json": b"{}",
+        "README.txt": f"Evidence for {entity}:{id} {period}".encode("utf-8"),
+    }
+    zip_bytes = build_evidence_zip_bytes(payloads)
+    headers = {"Content-Disposition": f"attachment; filename=evidence_{entity}_{id}_{period}.zip"}
+    return StreamingResponse(_io_for_pdf.BytesIO(zip_bytes), media_type="application/zip", headers=headers)
 
 
 class AgentFetchRequest(BaseModel):

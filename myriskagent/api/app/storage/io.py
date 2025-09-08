@@ -10,6 +10,8 @@ from typing import Iterable, Optional
 
 import duckdb
 import pandas as pd
+import io as _io
+import zipfile
 
 
 @dataclass
@@ -55,6 +57,22 @@ def write_evidence_zip(store: ObjectStore, key_prefix: str, payloads: dict[str, 
         manifest["files"][name] = {"uri": uri, "sha256": content_hash_bytes(blob)}
     store.put_text(f"{key_prefix}/{timestamp}/MANIFEST.json", json.dumps(manifest, indent=2))
     return f"{store.base_uri.rstrip('/')}/{key_prefix}/{timestamp}"
+
+
+def build_evidence_zip_bytes(payloads: dict[str, bytes]) -> bytes:
+    """Return a ZIP archive bytes containing the payload files.
+
+    Filenames are taken from the payloads dict keys.
+    """
+    buf = _io.BytesIO()
+    with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for name, blob in payloads.items():
+            zf.writestr(name, blob)
+        # add manifest
+        manifest = {name: content_hash_bytes(blob) for name, blob in payloads.items()}
+        zf.writestr("MANIFEST.json", json.dumps(manifest, indent=2))
+    buf.seek(0)
+    return buf.read()
 
 
 def seed_sample_claims(sample_path: str, out_parquet: Optional[str] = None) -> pd.DataFrame:
