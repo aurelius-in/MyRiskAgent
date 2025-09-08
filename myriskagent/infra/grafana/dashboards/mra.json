@@ -12,6 +12,22 @@
         }
       ],
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "type": "stat",
+      "title": "Total Requests (5m)",
+      "targets": [
+        { "expr": "sum(rate(mra_requests_total[5m]))" }
+      ],
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 8 }
+    },
+    {
+      "type": "table",
+      "title": "Requests by Path/Method",
+      "targets": [
+        { "expr": "sum by (path, method) (rate(mra_requests_total[5m]))" }
+      ],
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 12 }
     }
   ],
   "schemaVersion": 38,
