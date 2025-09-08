@@ -76,6 +76,22 @@
         { "expr": "sum by (method) (rate(mra_requests_total[5m]))" }
       ],
       "gridPos": { "h": 6, "w": 12, "x": 0, "y": 40 }
+    },
+    {
+      "type": "table",
+      "title": "Per-Path 5xx Error Rate (5m)",
+      "targets": [
+        { "expr": "sum by (path) (rate(mra_requests_total{status=~\"5..\"}[5m]))" }
+      ],
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 40 }
+    },
+    {
+      "type": "table",
+      "title": "Per-Path 4xx Error Rate (5m)",
+      "targets": [
+        { "expr": "sum by (path) (rate(mra_requests_total{status=~\"4..\"}[5m]))" }
+      ],
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 46 }
     }
   ],
   "schemaVersion": 38,
