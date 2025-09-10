@@ -24,6 +24,7 @@ const Ask: React.FC = () => {
   const [scopeFilings, setScopeFilings] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [toast, setToast] = React.useState<{ open: boolean; msg: string }>({ open: false, msg: '' })
+  const [history, setHistory] = React.useState<string[]>(() => { try { const raw = localStorage.getItem('mra_ask_history'); return raw ? JSON.parse(raw) : [] } catch { return [] } })
 
   const ask = async () => {
     setLoading(true)
@@ -32,6 +33,7 @@ const Ask: React.FC = () => {
       const res = await apiPost<AskResponse>('/api/ask', { question, org_id: orgId, scope })
       setAnswer(res.answer || '')
       setCites(res.citations || [])
+      try { const next = [question, ...history.filter(q => q !== question)].slice(0, 8); setHistory(next); localStorage.setItem('mra_ask_history', JSON.stringify(next)) } catch {}
       setError(null)
     } catch (e) {
       setAnswer('')
@@ -144,6 +146,13 @@ const Ask: React.FC = () => {
         <Button variant="outlined" onClick={checkSanctions} disabled={loading} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Sanctions</Button>
         <Button variant="outlined" onClick={downloadPdf} disabled={loading} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Download PDF</Button>
       </Stack>
+      {!!history.length && (
+        <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap' }}>
+          {history.map((h, i) => (
+            <Chip key={i} label={h} onClick={() => setQuestion(h)} sx={{ bgcolor: '#111', border: '1px solid #B30700', color: '#F1A501' }} />
+          ))}
+        </Stack>
+      )}
       {error && <ErrorState message={error} />}
       {!error && !answer && !loading && <EmptyState message="Ask a question to get started." />}
       {answer && (
