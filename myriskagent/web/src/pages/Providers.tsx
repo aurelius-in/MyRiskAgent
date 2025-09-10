@@ -10,6 +10,7 @@ import ProviderDetailDialog from '../components/ProviderDetailDialog'
 import { exportToCsv } from '../lib/csv'
 import ErrorState from '../components/ErrorState'
 import EmptyState from '../components/EmptyState'
+import TrendSparkline from '../components/TrendSparkline'
 
 interface ProviderRow {
   provider_id: number
@@ -95,6 +96,27 @@ const Providers: React.FC = () => {
       return next
     })
   }
+  const pinAllVisible = () => {
+    setPinnedProviders(prev => {
+      const ids = rows.map(r => r.provider_id)
+      const set = new Set(prev)
+      ids.forEach(id => set.add(id))
+      const next = Array.from(set).slice(0, 200)
+      try { localStorage.setItem('mra_pinned_providers', JSON.stringify(next)) } catch {}
+      return next
+    })
+  }
+  const exportPinned = () => {
+    const header = ['provider_id']
+    const lines = [header.join(',')]
+    pinnedProviders.forEach(id => lines.push(String(id)))
+    exportToCsv('pinned_providers.csv', [])
+    try {
+      const csv = lines.join('\n') + '\n'
+      void navigator.clipboard.writeText(csv)
+      setToast({ open: true, msg: 'Pinned exported to clipboard' })
+    } catch {}
+  }
 
   // Clear filters
   const clearFilters = () => { setIndustry(''); setRegion(''); setQuery('') }
@@ -106,6 +128,7 @@ const Providers: React.FC = () => {
   const [pinnedProviders, setPinnedProviders] = React.useState<number[]>(() => {
     try { const raw = localStorage.getItem('mra_pinned_providers'); return raw ? JSON.parse(raw) : [] } catch { return [] }
   })
+  const seriesCacheRef = React.useRef<Record<number, number[]>>({})
   const openDetail = async (providerId: number) => {
     const d = await apiGet(`/api/providers/${providerId}/detail?org_id=${orgId}`)
     setDetail(d)
@@ -175,6 +198,8 @@ const Providers: React.FC = () => {
         <Button variant="outlined" onClick={clearFilters} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Clear</Button>
         <Button variant="outlined" onClick={copyCsv} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Copy CSV</Button>
         <FormControlLabel control={<Switch checked={dense} onChange={(e) => setDense(e.target.checked)} />} label="Dense" sx={{ color: '#F1A501' }} />
+        <Button variant="outlined" onClick={pinAllVisible} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Pin All</Button>
+        <Button variant="outlined" onClick={exportPinned} sx={{ color: '#F1A501', borderColor: '#B30700' }}>Export Pinned</Button>
       </Box>
       <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
         {query && <Chip label={`q: ${query}`} onDelete={() => setQuery('')} sx={{ bgcolor: '#111', border: '1px solid #B30700', color: '#F1A501' }} />}
@@ -224,7 +249,15 @@ const Providers: React.FC = () => {
             </TableHead>
             <TableBody>
               {rows.map(r => (
-                <TableRow key={r.provider_id} hover style={{ cursor: 'pointer' }} onClick={() => openDetail(r.provider_id)}>
+                <TableRow key={r.provider_id} hover style={{ cursor: 'pointer' }} onClick={() => openDetail(r.provider_id)} onMouseEnter={async () => {
+                  if (!seriesCacheRef.current[r.provider_id]) {
+                    try {
+                      const d = await apiGet<any>(`/api/providers/${r.provider_id}/detail?org_id=${orgId}`)
+                      const arr = (d.series || []).map((s: any) => Number(s.amount)).slice(-24)
+                      seriesCacheRef.current[r.provider_id] = arr
+                    } catch {}
+                  }
+                }}>
                   <TableCell sx={{ color: '#F1A501', display: 'flex', alignItems: 'center', gap: 1 }}>
                     <IconButton size="small" onClick={(e) => { e.stopPropagation(); togglePinProvider(r.provider_id) }} sx={{ color: '#F1A501' }}>
                       {pinnedProviders.includes(r.provider_id) ? <Star /> : <StarBorder />}
@@ -236,6 +269,13 @@ const Providers: React.FC = () => {
                   <TableCell sx={{ color: '#F1A501' }} align="right">{r.n_claims}</TableCell>
                   <TableCell sx={{ color: '#F1A501' }}>{r.industry ? <Chip size="small" label={r.industry} onClick={(e) => { e.stopPropagation(); setIndustry(r.industry || '') }} sx={{ bgcolor: '#111', border: '1px solid #B30700', color: '#F1A501' }} /> : ''}</TableCell>
                   <TableCell sx={{ color: '#F1A501' }}>{r.region ? <Chip size="small" label={r.region} onClick={(e) => { e.stopPropagation(); setRegion(r.region || '') }} sx={{ bgcolor: '#111', border: '1px solid #B30700', color: '#F1A501' }} /> : ''}</TableCell>
+                  <TableCell sx={{ color: '#F1A501', minWidth: 120 }}>
+                    {seriesCacheRef.current[r.provider_id] ? (
+                      <TrendSparkline values={seriesCacheRef.current[r.provider_id]} />
+                    ) : (
+                      <SkeletonBlock height={24} />
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
